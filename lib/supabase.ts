@@ -60,17 +60,21 @@ export interface Car {
 
 export interface Bid {
   id: string
-  car_id: string
+  car_id: string | null
+  car_configuration_id: string | null
   buyer_id: string
   bid_price: number
   status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
   commitment_fee_paid: boolean
+  commitment_fee_amount?: number
+  net_offer_amount?: number
   payment_reference?: string
   created_at: string
   expires_at: string
   updated_at: string
   car?: Car
   buyer?: User
+  configuration?: CarConfiguration
 }
 
 export interface BidAggregate {

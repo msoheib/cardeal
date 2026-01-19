@@ -84,17 +84,12 @@ export const getConfigBids = async (configId: string) => {
 }
 
 // SHARED: Get Leaderboard
-export const getBidLeaderboard = async (configId: string) => {
-  // Can reuse existing logic or fetch raw bids
+export const getBidLeaderboard = async (carId: string) => {
   const { data, error } = await supabase
-    .from('bids')
-    .select('bid_price, created_at')
-    .eq('car_configuration_id', configId)
-    .eq('status', 'accepted') // Only accepted deals usually show on "Sold" leaderboards, or all offers?
-    .order('bid_price', { ascending: true }) // Best offers usually lowest if buyer wants cheap, but here auction is usually highest?
-    // Wait, typical auction = Highest wins. But car sales might be "Low offer accepted"?
-    // User said: "lowest ones, and also the most recent offers"
-    // So assume Buyer wants lowest price.
+    .from('bid_aggregates')
+    .select('id, car_id, bid_price, bid_count, last_updated')
+    .eq('car_id', carId)
+    .order('bid_count', { ascending: false })
     .limit(5)
 
   return { data, error }
