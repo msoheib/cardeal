@@ -141,13 +141,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
       case 'pending':
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">قيد الانتظار</Badge>
       case 'accepted':
-        return <Badge className="bg-green-100 text-green-800">مقبولة</Badge>
+        return <Badge className="bg-primary/10 text-primary">مقبولة</Badge>
       case 'rejected':
         return <Badge variant="destructive">مرفوضة</Badge>
       case 'completed':
-        return <Badge className="bg-green-100 text-green-800">مكتملة</Badge>
+        return <Badge className="bg-primary/10 text-primary">مكتملة</Badge>
       case 'active':
-        return <Badge className="bg-green-100 text-green-800">نشط</Badge>
+        return <Badge className="bg-primary/10 text-primary">نشط</Badge>
       case 'draft':
         return <Badge variant="outline">مسودة</Badge>
       default:
@@ -159,7 +159,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">جاري تحميل لوحة الإدارة...</p>
         </div>
       </div>
@@ -223,7 +223,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   <p className="text-sm text-gray-600">إجمالي السيارات</p>
                   <p className="text-2xl font-bold text-gray-900">{stats?.totalCars || 0}</p>
                 </div>
-                <Car className="w-8 h-8 text-green-500" />
+                <Car className="w-8 h-8 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -245,11 +245,11 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">رسوم الالتزام المحصلة</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-2xl font-bold text-primary">
                     {formatPrice(stats?.totalFeesCollected || 0)}
                   </p>
                 </div>
-                <DollarSign className="w-8 h-8 text-green-500" />
+                <DollarSign className="w-8 h-8 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -274,7 +274,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span>مدفوعة:</span>
-                      <span className="font-semibold text-green-600">
+                      <span className="font-semibold text-primary">
                         {stats?.commitmentFees?.paid || 0}
                       </span>
                     </div>
@@ -325,13 +325,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-primary">
                         {salesReport.summary.totalDeals}
                       </div>
                       <div className="text-sm text-gray-600">صفقة مكتملة</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-primary">
                         {formatPrice(salesReport.summary.totalRevenue)}
                       </div>
                       <div className="text-sm text-gray-600">إجمالي الإيرادات</div>
@@ -363,7 +363,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             {pendingCars.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                  <CheckCircle className="w-12 h-12 text-primary mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
                     لا توجد سيارات معلقة
                   </h3>
@@ -412,7 +412,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                           <Button 
                             size="sm" 
                             onClick={() => handleApproveCar(car.id)}
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-primary hover:bg-primary/90"
                           >
                             <CheckCircle className="w-4 h-4 mr-2" />
                             موافقة
@@ -503,7 +503,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                           </TableCell>
                           <TableCell>{dealer?.company_name}</TableCell>
                           <TableCell>{buyer?.full_name}</TableCell>
-                          <TableCell className="font-semibold text-green-600">
+                          <TableCell className="font-semibold text-primary">
                             {formatPrice(deal.final_price)}
                           </TableCell>
                           <TableCell>{getStatusBadge(deal.status)}</TableCell>

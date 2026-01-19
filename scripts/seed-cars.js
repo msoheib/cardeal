@@ -101,7 +101,7 @@ function buildMockCars(dealerId) {
     status: 'active',
     available_quantity: 5 - (idx % 3),
     original_quantity: 5,
-    featured: idx % 4 === 0,
+
     min_bid_price: Math.floor(c.wakala_price * 0.8),
     created_at: now,
     updated_at: now,

@@ -1,4 +1,4 @@
-﻿/*
+/*
   # Bidding and Fee Management System (tables)
 
   This migration now creates the enums, tables, and indexes required for the

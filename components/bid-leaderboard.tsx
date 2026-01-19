@@ -12,12 +12,15 @@ interface BidLeaderboardProps {
   carId: string
   wakalaPrice: number
   currentUserBid?: number
+  priceSlots?: number[]
 }
 
-export function BidLeaderboard({ carId, wakalaPrice, currentUserBid }: BidLeaderboardProps) {
+export function BidLeaderboard({ carId, wakalaPrice, currentUserBid, priceSlots }: BidLeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<BidAggregate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [totalBids, setTotalBids] = useState(0)
+
+  const hasSlots = priceSlots && priceSlots.length > 0
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ar-SA', {
@@ -30,9 +33,33 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid }: BidLeader
 
   const loadLeaderboard = async () => {
     const { data, error } = await getBidLeaderboard(carId)
-    if (data) {
-      setLeaderboard(data)
-      setTotalBids(data.reduce((sum, item) => sum + item.bid_count, 0))
+    if (error) {
+      setLeaderboard([])
+      setTotalBids(0)
+    } else if (data) {
+      // If price slots are defined, merge with actual bids to show all slots
+      if (hasSlots && priceSlots) {
+        const bidMap = new Map(data.map(b => [b.bid_price, b]))
+        const mergedLeaderboard: BidAggregate[] = priceSlots.map(slot => {
+          const existing = bidMap.get(slot)
+          if (existing) return existing
+          // Create placeholder for slot with 0 bids
+          return {
+            id: `slot-${slot}`,
+            car_id: carId,
+            bid_price: slot,
+            bid_count: 0,
+            last_updated: new Date().toISOString()
+          }
+        })
+        // Sort by bid_count (most popular first)
+        mergedLeaderboard.sort((a, b) => b.bid_count - a.bid_count)
+        setLeaderboard(mergedLeaderboard)
+        setTotalBids(data.reduce((sum, item) => sum + item.bid_count, 0))
+      } else {
+        setLeaderboard(data)
+        setTotalBids(data.reduce((sum, item) => sum + item.bid_count, 0))
+      }
     }
     setIsLoading(false)
   }
@@ -107,7 +134,7 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid }: BidLeader
     if (percentage >= 98) return { text: 'منافسة عالية جداً', color: 'text-red-600' }
     if (percentage >= 95) return { text: 'منافسة عالية', color: 'text-orange-600' }
     if (percentage >= 90) return { text: 'منافسة متوسطة', color: 'text-yellow-600' }
-    return { text: 'منافسة منخفضة', color: 'text-green-600' }
+    return { text: 'منافسة منخفضة', color: 'text-primary' }
   }
 
   return (
@@ -136,10 +163,11 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid }: BidLeader
             const savings = wakalaPrice - bid.bid_price
             const competitiveness = getCompetitivenessText(bid.bid_price)
             const isUserBid = currentUserBid === bid.bid_price
-            
+            const isTopEntry = index === 0
+
             return (
-              <div 
-                key={bid.id} 
+              <div
+                key={bid.id}
                 className={`
                   relative p-4 rounded-lg border transition-all duration-300
                   ${getRankColor(index)}
@@ -147,8 +175,13 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid }: BidLeader
                   hover:scale-105 transform
                 `}
               >
+                {isTopEntry && (
+                  <Badge className="absolute -top-2 -left-2 bg-green-100 text-green-800 text-xs">
+                    الأكثر مشاركة
+                  </Badge>
+                )}
                 {isUserBid && (
-                  <Badge className="absolute -top-2 -right-2 bg-green-500 text-white text-xs">
+                  <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs">
                     مزايدتك
                   </Badge>
                 )}
@@ -182,10 +215,10 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid }: BidLeader
 
                 {/* Visual indicator bar */}
                 <div className="mt-3 bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.min(100, (bid.bid_count / Math.max(...leaderboard.map(b => b.bid_count))) * 100)}%` 
+                    style={{
+                      width: `${Math.min(100, (bid.bid_count / (leaderboard[0]?.bid_count || 1)) * 100)}%`
                     }}
                   ></div>
                 </div>

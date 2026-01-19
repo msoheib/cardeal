@@ -3,40 +3,51 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getCars } from '@/lib/cars'
-import { acceptBids, getDealsByDealer } from '@/lib/deals'
+import { getDealerInventory, getDealerOpportunities } from '@/lib/cars'
+import { acceptBid, getDealsByDealer } from '@/lib/deals' // Use singular acceptBid
 import { signOut } from '@/lib/auth'
-import { supabase, User, Car, Deal } from '@/lib/supabase'
+import { supabase, User, CarConfiguration, Deal } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
-import { 
-  Car as CarIcon, 
-  TrendingUp, 
-  Users, 
-  DollarSign,
+import {
+  Car as CarIcon,
+  TrendingUp,
   LogOut,
   Eye,
   Settings,
   CheckCircle,
-  BarChart3
+  BarChart3,
+  PlusCircle,
+  AlertCircle,
+  Clock,
+  DollarSign
 } from 'lucide-react'
 
 interface DealerDashboardProps {
   user: User
 }
 
+// Extended types for UI
+interface InventoryItem {
+  id: string
+  quantity: number
+  status: string
+  car_configuration_id: string
+  configuration: CarConfiguration
+  price_slots?: number[]
+}
+
 export function DealerDashboard({ user }: DealerDashboardProps) {
-  const [cars, setCars] = useState<Car[]>([])
+  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [opportunities, setOpportunities] = useState<any[]>([]) // Pending bids
   const [deals, setDeals] = useState<Deal[]>([])
-  const [selectedCar, setSelectedCar] = useState<Car | null>(null)
-  const [bidData, setBidData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [acceptQuantity, setAcceptQuantity] = useState(1)
+  const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
 
   const formatPrice = (price: number) => {
@@ -63,58 +74,49 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
       return
     }
 
-    // Load dealer's cars
-    const { data: carsData } = await getCars({ dealerId: dealerData.id })
-    if (carsData) {
-      setCars(carsData)
-    }
+    const dealerId = dealerData.id
 
-    // Load deals
-    const { data: dealsData } = await getDealsByDealer(dealerData.id)
-    if (dealsData) {
-      setDeals(dealsData)
-    }
+    // 1. Load Inventory
+    const { data: invData } = await getDealerInventory(dealerId)
+    if (invData) setInventory(invData as any)
+
+    // 2. Load Opportunities (Pending Bids)
+    const { data: oppsData } = await getDealerOpportunities(dealerId)
+    if (oppsData) setOpportunities(oppsData)
+
+    // 3. Load Deals
+    const { data: dealsData } = await getDealsByDealer(dealerId)
+    if (dealsData) setDeals(dealsData)
 
     setIsLoading(false)
   }
 
-  const loadBidData = async (carId: string) => {
-    const { data } = await supabase
-      .from('bid_aggregates')
-      .select('*')
-      .eq('car_id', carId)
-      .order('bid_price', { ascending: false })
-
-    setBidData(data || [])
-  }
-
   useEffect(() => {
     loadDashboardData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id])
 
-  const handleAcceptBids = async (carId: string, bidPrice: number, quantity: number) => {
-    const dealerData = await supabase
-      .from('dealers')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+  const handleAcceptBid = async (bidId: string, amount: number) => {
+    const { data: dealerData } = await supabase.from('dealers').select('id').eq('user_id', user.id).single()
+    if (!dealerData) return
 
-    if (!dealerData.data) return
+    setIsProcessing(true)
+    const result = await acceptBid(bidId, dealerData.id)
+    setIsProcessing(false)
 
-    const { data, error } = await acceptBids(carId, bidPrice, quantity, dealerData.data.id)
-    
-    if (error) {
+    if (result.error) {
       toast({
         title: "خطأ",
-        description: error as string,
+        description: typeof result.error === 'string' ? result.error : 'فشل قبول العرض',
         variant: "destructive"
       })
     } else {
       toast({
-        title: "تم قبول المزايدات",
-        description: `تم قبول ${data?.length} مزايدة بسعر ${formatPrice(bidPrice)}`,
+        title: "تم قبول العرض!",
+        description: `تم قبول العرض بقيمة ${formatPrice(amount)} بنجاح.`,
         variant: "default"
       })
+      // Refresh data to move from opportunities to deals
       loadDashboardData()
     }
   }
@@ -124,346 +126,235 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     window.location.href = '/'
   }
 
-  const stats = {
-    totalCars: cars.length,
-    activeCars: cars.filter(car => car.status === 'active').length,
-    totalDeals: deals.length,
-    completedDeals: deals.filter(deal => deal.status === 'completed').length,
-    totalRevenue: deals
-      .filter(deal => deal.status === 'completed')
-      .reduce((sum, deal) => sum + deal.final_price, 0)
-  }
-
   return (
-    <div>
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                مرحباً، {user.full_name}
-              </h1>
-              <p className="text-gray-600">لوحة تحكم التاجر</p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Link href="/dealer/cars/add">
-                <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                  <CarIcon className="w-4 h-4 mr-2" />
-                  إضافة سيارة
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                تسجيل الخروج
+    <div className="bg-gray-50 min-h-screen" dir="rtl">
+      <header className="bg-white border-b sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">لوحة التحكم (تاجر)</h1>
+            <p className="text-sm text-gray-600">مرحباً، {user.full_name}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/cars">
+              <Button variant="outline" size="sm">
+                <CarIcon className="w-4 h-4 ml-2" />
+                تصفح السوق
               </Button>
-            </div>
+            </Link>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 ml-2" />
+              خروج
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">إجمالي السيارات</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalCars}</p>
-                </div>
-                <CarIcon className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">السيارات النشطة</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.activeCars}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">إجمالي الصفقات</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.totalDeals}</p>
-                </div>
-                <Users className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">الصفقات المكتملة</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.completedDeals}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">إجمالي الإيرادات</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatPrice(stats.totalRevenue)}
-                  </p>
-                </div>
-                <DollarSign className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <Card>
+                <CardContent className="p-6 flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">فرص البيع (مزايدات)</p>
+                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{opportunities.length}</h3>
+                    </div>
+                    <AlertCircle className="w-8 h-8 text-orange-500" />
+                </CardContent>
+             </Card>
+             <Card>
+                <CardContent className="p-6 flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">سياراتي المعروضة</p>
+                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.length}</h3>
+                    </div>
+                    <CarIcon className="w-8 h-8 text-blue-500" />
+                </CardContent>
+             </Card>
+             <Card>
+                <CardContent className="p-6 flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-medium text-gray-500">إجمالي المبيعات</p>
+                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{deals.length}</h3>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-green-500" />
+                </CardContent>
+             </Card>
         </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="cars" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="cars">سياراتي والمزايدات</TabsTrigger>
-            <TabsTrigger value="deals">الصفقات</TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="opportunities" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="opportunities" className="relative">
+                    فرص البيع
+                    {opportunities.length > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                            {opportunities.length}
+                        </span>
+                    )}
+                </TabsTrigger>
+                <TabsTrigger value="inventory">المخزون</TabsTrigger>
+                <TabsTrigger value="deals">سجل الصفقات</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="cars" className="space-y-4">
-            <h2 className="text-xl font-semibold">السيارات والمزايدات</h2>
+            {/* Opportunities (Pending Bids) */}
+            <TabsContent value="opportunities" className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold">عروض الشراء المتاحة</h2>
+                    <p className="text-sm text-gray-500">الأسبقية لمن يقبل العرض أولاً</p>
+                </div>
 
-            {cars.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <CarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    لا توجد سيارات بعد
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    ابدأ بإضافة سياراتك لتلقي المزايدات
-                  </p>
-                  <Link href="/dealer/cars/add">
-                    <Button>إضافة سيارة</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {cars.map((car) => (
-                  <Card key={car.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold">
-                            {car.make} {car.model} {car.year}
-                          </h3>
-                          <p className="text-gray-600">{car.variant}</p>
-                          <p className="text-lg font-bold text-green-600 mt-2">
-                            {formatPrice(car.wakala_price)}
-                          </p>
-                        </div>
-                        <Badge 
-                          variant={car.status === 'active' ? 'default' : 'secondary'}
-                          className={car.status === 'active' ? 'bg-green-100 text-green-800' : ''}
-                        >
-                          {car.status === 'active' ? 'نشط' : 'غير نشط'}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div>
-                          <span className="text-gray-600">الكمية المتاحة:</span>
-                          <div className="font-semibold">{car.available_quantity}</div>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">الكمية الأصلية:</span>
-                          <div className="font-semibold">{car.original_quantity}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Link href={`/cars/${car.id}`}>
-                          <Button variant="outline" size="sm">
-                            <Eye className="w-4 h-4 mr-2" />
-                            عرض
-                          </Button>
-                        </Link>
-                        
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button 
-                              size="sm" 
-                              onClick={() => {
-                                setSelectedCar(car)
-                                loadBidData(car.id)
-                              }}
-                            >
-                              <BarChart3 className="w-4 h-4 mr-2" />
-                              إدارة المزايدات
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl">
-                            <DialogHeader>
-                              <DialogTitle>
-                                إدارة المزايدات - {selectedCar?.make} {selectedCar?.model}
-                              </DialogTitle>
-                            </DialogHeader>
-                            
-                            <div className="space-y-4">
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-semibold mb-2">معلومات السيارة</h4>
-                                <div className="grid grid-cols-3 gap-4 text-sm">
-                                  <div>
-                                    <span className="text-gray-600">سعر الوكالة:</span>
-                                    <div className="font-semibold">{formatPrice(selectedCar?.wakala_price || 0)}</div>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-600">الكمية المتاحة:</span>
-                                    <div className="font-semibold">{selectedCar?.available_quantity}</div>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-600">إجمالي المزايدات:</span>
-                                    <div className="font-semibold">
-                                      {bidData.reduce((sum, bid) => sum + bid.bid_count, 0)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                <h4 className="font-semibold mb-4">مستويات المزايدات</h4>
-                                {bidData.length === 0 ? (
-                                  <p className="text-gray-600 text-center py-8">
-                                    لا توجد مزايدات على هذه السيارة بعد
-                                  </p>
-                                ) : (
-                                  <div className="space-y-3">
-                                    {bidData.map((bid, index) => (
-                                      <div key={bid.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-4">
-                                            <div className="text-lg font-semibold">
-                                              {formatPrice(bid.bid_price)}
-                                            </div>
-                                            <Badge variant="secondary">
-                                              {bid.bid_count} مزايد
-                                            </Badge>
-                                            <div className="text-sm text-gray-600">
-                                              إيراد محتمل: {formatPrice(bid.bid_price * bid.bid_count)}
-                                            </div>
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-2">
-                                          <Input
-                                            type="number"
-                                            min="1"
-                                            max={Math.min(bid.bid_count, selectedCar?.available_quantity || 0)}
-                                            value={acceptQuantity}
-                                            onChange={(e) => setAcceptQuantity(parseInt(e.target.value) || 1)}
-                                            className="w-20"
-                                          />
-                                          <Button
-                                            size="sm"
-                                            onClick={() => handleAcceptBids(selectedCar!.id, bid.bid_price, acceptQuantity)}
-                                            disabled={acceptQuantity > Math.min(bid.bid_count, selectedCar?.available_quantity || 0)}
-                                          >
-                                            قبول
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="deals" className="space-y-4">
-            <h2 className="text-xl font-semibold">الصفقات</h2>
-
-            {deals.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    لا توجد صفقات بعد
-                  </h3>
-                  <p className="text-gray-600">
-                    عندما تقبل المزايدات، ستظهر الصفقات هنا
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {deals.map((deal) => {
-                  const car = deal.car as any
-                  const buyer = deal.buyer as any
-                  return (
-                    <Card key={deal.id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-4 mb-2">
-                              <h3 className="text-lg font-semibold">
-                                {car?.make} {car?.model} {car?.year}
-                              </h3>
-                              <Badge 
-                                variant={deal.status === 'completed' ? 'default' : 'secondary'}
-                                className={deal.status === 'completed' ? 'bg-green-100 text-green-800' : ''}
-                              >
-                                {deal.status === 'completed' ? 'مكتملة' : 'في انتظار الدفع'}
-                              </Badge>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">المشتري:</span>
-                                <div className="font-semibold">{buyer?.full_name}</div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">السعر النهائي:</span>
-                                <div className="font-semibold text-green-600">
-                                  {formatPrice(deal.final_price)}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">تاريخ الصفقة:</span>
-                                <div className="font-semibold">
-                                  {new Date(deal.created_at).toLocaleDateString('ar-SA')}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">الكمية:</span>
-                                <div className="font-semibold">{deal.quantity}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
+                {opportunities.length === 0 ? (
+                    <Card>
+                        <CardContent className="p-12 text-center text-gray-500">
+                            <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                            <p>لا توجد عروض شراء معلقة حالياً.</p>
+                        </CardContent>
                     </Card>
-                  )
-                })}
-              </div>
-            )}
-          </TabsContent>
+                ) : (
+                    <div className="grid gap-4">
+                        {opportunities.map((bid) => {
+                            const config = bid.configuration
+                            return (
+                                <Card key={bid.id} className="overflow-hidden border-l-4 border-l-orange-500">
+                                    <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="bg-orange-100 p-3 rounded-full">
+                                                <DollarSign className="w-6 h-6 text-orange-600" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-lg text-gray-900">
+                                                    عرض بقيمة {formatPrice(bid.bid_price)}
+                                                </h3>
+                                                <p className="text-sm text-gray-600">
+                                                    على سيارة: {config.make} {config.model} {config.year} - {config.trim}
+                                                </p>
+                                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                    <span>قبل {new Date(bid.created_at).toLocaleTimeString('ar-SA')}</span>
+                                                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full">رسوم الالتزام مدفوعة</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                             <div className="text-left">
+                                                <p className="text-xs text-gray-500">صافي العرض المقدر</p>
+                                                <p className="font-bold text-gray-900">{formatPrice(bid.net_offer_amount || bid.bid_price - 500)}</p>
+                                             </div>
+                                             <Button 
+                                                onClick={() => handleAcceptBid(bid.id, bid.bid_price)} 
+                                                disabled={isProcessing}
+                                                className="bg-green-600 hover:bg-green-700 text-white min-w-[120px]"
+                                             >
+                                                {isProcessing ? 'جاري القبول...' : 'قبول العرض'}
+                                             </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            )
+                        })}
+                    </div>
+                )}
+            </TabsContent>
+
+            {/* Inventory */}
+            <TabsContent value="inventory" className="space-y-4">
+                 <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold">المخزون الحالي</h2>
+                    <Link href="/dealer/cars/add">
+                        <Button>
+                            <PlusCircle className="w-4 h-4 ml-2" />
+                            إضافة سيارة
+                        </Button>
+                    </Link>
+                </div>
+                
+                {inventory.length === 0 ? (
+                    <Card><CardContent className="p-8 text-center text-gray-500">لا يوجد مخزون حالياً.</CardContent></Card>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {inventory.map((item) => (
+                            <Card key={item.id} className="flex flex-col">
+                                <CardHeader className="p-4 pb-0">
+                                    <div className="flex justify-between items-start">
+                                        <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
+                                            {item.status === 'active' ? 'نشط' : item.status}
+                                        </Badge>
+                                        {item.quantity === 0 && <Badge variant="destructive">نفذت الكمية</Badge>}
+                                    </div>
+                                    <CardTitle className="mt-2 text-lg">
+                                        {item.configuration.make} {item.configuration.model} {item.configuration.year}
+                                    </CardTitle>
+                                    <CardDescription>{item.configuration.trim}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-end">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className="text-sm text-gray-500">الكمية: {item.quantity}</span>
+                                        <span className="font-bold text-primary">{formatPrice(item.configuration.msrp)}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Link href={`/cars/${item.car_configuration_id}`} className="flex-1">
+                                            <Button variant="outline" className="w-full">عرض الصفحة</Button>
+                                        </Link>
+                                        {/* Future: Edit Quantity Button */}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </TabsContent>
+
+            {/* Deals */}
+            <TabsContent value="deals" className="space-y-4">
+                <h2 className="text-xl font-semibold">سجل الصفقات</h2>
+                {deals.length === 0 ? (
+                    <Card><CardContent className="p-8 text-center text-gray-500">لا توجد صفقات سابقة.</CardContent></Card>
+                ) : (
+                    <div className="space-y-4">
+                        {deals.map(deal => {
+                            const config = (deal as any).configuration
+                            const buyer = (deal as any).buyer
+                            return (
+                                <Card key={deal.id}>
+                                    <CardContent className="p-6 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="font-bold text-gray-900">
+                                                    {config?.make} {config?.model} {config?.year} - {config?.trim}
+                                                </h3>
+                                                <p className="text-sm text-gray-500">بتاريخ {new Date(deal.created_at).toLocaleDateString('ar-SA')}</p>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="font-bold text-primary">{formatPrice(deal.final_price)}</p>
+                                                <Badge variant={deal.status === 'completed' ? 'default' : 'secondary'}>
+                                                    {deal.status === 'pending_payment' ? 'في انتظار الدفع' : deal.status === 'completed' ? 'مكتملة' : deal.status}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        {/* Buyer Contact Info */}
+                                        <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                                            <h4 className="font-semibold text-blue-900 mb-2">معلومات المشتري</h4>
+                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <span className="text-gray-600">الاسم: </span>
+                                                    <span className="font-medium">{buyer?.full_name || 'غير متوفر'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-600">الجوال: </span>
+                                                    <span className="font-medium" dir="ltr">{buyer?.phone || buyer?.email || 'غير متوفر'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
+                    </div>
+                )}
+            </TabsContent>
+
         </Tabs>
-      </div>
+      </main>
     </div>
   )
 }
+

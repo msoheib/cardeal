@@ -52,6 +52,9 @@ export interface Car {
   updated_at: string
   featured: boolean
   min_bid_price?: number
+  trim?: string
+  color?: string
+  price_slots?: number[]
   dealer?: Dealer
 }
 
@@ -106,4 +109,33 @@ export interface Deal {
   car?: Car
   dealer?: Dealer
   buyer?: User
+}
+
+export interface CarConfiguration {
+  id: string
+  make: string
+  model: string
+  year: number
+  variant?: string
+  trim?: string
+  color?: string
+  msrp: number
+  description?: string
+  specifications: any
+  images: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface DealerInventory {
+  id: string
+  dealer_id: string
+  car_configuration_id: string
+  quantity: number
+  status: 'active' | 'out_of_stock' | 'hidden'
+  price_slots?: number[]
+  created_at: string
+  updated_at: string
+  configuration?: CarConfiguration
+  dealer?: Dealer
 }

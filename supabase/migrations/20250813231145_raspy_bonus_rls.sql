@@ -1,4 +1,4 @@
-﻿/*
+/*
   # Bidding and Fee Management System (RLS & Policies)
 
   Enables row level security and recreates the policies that depend on the

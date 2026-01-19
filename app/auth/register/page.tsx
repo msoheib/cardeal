@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +24,8 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectUrl = searchParams?.get('redirect')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +55,8 @@ export default function RegisterPage() {
     if (signUpError) {
       setError(signUpError.message)
     } else {
-      router.push('/dashboard')
+      // Redirect to the original page or dashboard
+      router.push(redirectUrl || '/dashboard')
     }
 
     setIsLoading(false)
@@ -64,7 +67,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
@@ -72,14 +75,7 @@ export default function RegisterPage() {
             العودة للرئيسية
           </Link>
           
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-green-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">م</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">منصة المزايدات</h1>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900">CarDeal</h1>
         </div>
 
         <Card className="shadow-lg">
@@ -203,7 +199,7 @@ export default function RegisterPage() {
             <CardFooter className="space-y-4">
               <Button 
                 type="submit" 
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-primary hover:bg-primary/90"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -218,7 +214,7 @@ export default function RegisterPage() {
 
               <div className="text-center text-sm text-gray-600">
                 لديك حساب بالفعل؟{' '}
-                <Link href="/auth/login" className="text-green-600 hover:text-green-700 font-medium">
+                <Link href="/auth/login" className="text-primary hover:text-primary/80 font-medium">
                   تسجيل الدخول
                 </Link>
               </div>

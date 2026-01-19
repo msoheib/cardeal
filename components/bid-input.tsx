@@ -1,38 +1,41 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { DollarSign, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
 import { placeBid } from '@/lib/cars'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import MoyasarCheckout from '@/components/moyasar-checkout'
 import { useToast } from '@/hooks/use-toast'
+import { Input } from '@/components/ui/input'
 
 interface BidInputProps {
-  carId: string
-  wakalaPrice: number
-  minBidPrice?: number
+  configId: string
+  msrp: number
   currentUserBid?: number
   onBidPlaced?: (bidPrice: number) => void
   userId?: string
+  locked?: boolean
+  priceSlots?: number[] // Aggregated slots from dealers
 }
 
-export function BidInput({ 
-  carId, 
-  wakalaPrice, 
-  minBidPrice, 
-  currentUserBid, 
+export function BidInput({
+  configId,
+  msrp,
+  currentUserBid,
   onBidPlaced,
-  userId 
+  userId,
+  locked,
+  priceSlots = []
 }: BidInputProps) {
-  const [bidAmount, setBidAmount] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const { toast } = useToast()
-
+  const pathname = usePathname()
+  
+  // Format price helper (defined early for guest view)
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ar-SA', {
       style: 'currency',
@@ -42,13 +45,69 @@ export function BidInput({
     }).format(price)
   }
 
-  const bidValue = parseFloat(bidAmount) || 0
-  const savings = wakalaPrice - bidValue
-  const isValidBid = bidValue > 0 && bidValue < wakalaPrice && (!minBidPrice || bidValue >= minBidPrice)
+  // For guests, show a login prompt instead of the bid form
+  if (!userId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-primary" />
+            قدّم عرضك
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">سعر الوكالة (MSRP)</span>
+              <span className="text-lg font-bold text-gray-900">{formatPrice(msrp)}</span>
+            </div>
+          </div>
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              يجب تسجيل الدخول لتقديم عرض
+            </AlertDescription>
+          </Alert>
+          <div className="flex gap-2">
+            <Button asChild className="flex-1">
+              <Link href={`/auth/login?redirect=${encodeURIComponent(pathname || '')}`}>تسجيل الدخول</Link>
+            </Button>
+            <Button asChild variant="outline" className="flex-1">
+              <Link href={`/auth/register?redirect=${encodeURIComponent(pathname || '')}`}>إنشاء حساب</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Authenticated user: show full bid form
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
+  const [customAmount, setCustomAmount] = useState<string>(msrp.toString())
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const { toast } = useToast()
+  const [showPayModal, setShowPayModal] = useState(false)
+  const [createdBidId, setCreatedBidId] = useState<string>('')
+  
+  // Fee Calculation
+  const RESERVATION_FEE_SAR = 500
+  const VAT_RATE = 0
+  const TOTAL_FEE_SAR = RESERVATION_FEE_SAR // 500
+  const TOTAL_FEE_HALALAS = TOTAL_FEE_SAR * 100 // 50000
+
+  const hasSlots = priceSlots && priceSlots.length > 0
+
+  // Bid Value Logic
+  const bidValue = selectedSlot ?? (customAmount ? parseInt(customAmount) : 0)
+  
+  // Validation
+  // Offer must be > Reservation Fee (500)
+  const isValidBid = bidValue > RESERVATION_FEE_SAR
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!userId) {
       toast({
         title: "يجب تسجيل الدخول",
@@ -59,7 +118,7 @@ export function BidInput({
     }
 
     if (!isValidBid) {
-      setError('يرجى إدخال مبلغ مزايدة صحيح')
+      setError(`يجب أن يكون العرض أعلى من رسوم الالتزام (${RESERVATION_FEE_SAR} ريال)`)
       return
     }
 
@@ -67,39 +126,26 @@ export function BidInput({
     setError('')
 
     try {
-      const { data, error: bidError } = await placeBid(carId, bidValue, userId)
-      
+      // Logic: Place Bid -> Get ID -> Pay
+      const { data, error: bidError } = await placeBid({
+        car_configuration_id: configId,
+        amount: bidValue,
+        buyer_id: userId
+      })
+
       if (bidError) {
-        setError(bidError as string)
+        setError(typeof bidError === 'string' ? bidError : (bidError as any).message || 'حدث خطأ')
         toast({
-          title: "خطأ في المزايدة",
-          description: bidError as string,
-          variant: "destructive"
+            title: "خطأ",
+            description: "لم نتمكن من تسجيل العرض، حاول مرة أخرى",
+            variant: "destructive"
         })
       } else {
-        // Simulate commitment fee payment for demo
-        const paymentReference = `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        
-        // In a real app, this would integrate with a payment gateway
-        // For demo purposes, we'll simulate successful payment
-        const { processCommitmentFee } = await import('@/lib/deals')
-        await processCommitmentFee(data.id, paymentReference)
-        
-        toast({
-          title: "تم وضع المزايدة بنجاح",
-          description: `تم وضع مزايدتك بقيمة ${formatPrice(bidValue)} ودفع رسوم الالتزام 500 ريال`,
-          variant: "default"
-        })
-        setBidAmount('')
-        onBidPlaced?.(bidValue)
+        setCreatedBidId(data.id)
+        setShowPayModal(true)
       }
     } catch (err) {
-      setError('حدث خطأ أثناء وضع المزايدة')
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء وضع المزايدة",
-        variant: "destructive"
-      })
+      setError('حدث خطأ غير متوقع')
     } finally {
       setIsSubmitting(false)
     }
@@ -109,129 +155,149 @@ export function BidInput({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-green-600" />
-          ضع مزايدتك
+          <DollarSign className="w-5 h-5 text-primary" />
+          قدّم عرضك
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Current bid display */}
-        {currentUserBid && (
-          <Alert>
-            <CheckCircle className="w-4 h-4" />
-            <AlertDescription>
-              مزايدتك الحالية: <strong>{formatPrice(currentUserBid)}</strong>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Price context */}
+        {/* Context */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">سعر الوكالة</span>
+           <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">سعر الوكالة (MSRP)</span>
             <span className="text-lg font-bold text-gray-900">
-              {formatPrice(wakalaPrice)}
+              {formatPrice(msrp)}
             </span>
           </div>
-          
-          {minBidPrice && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">الحد الأدنى للمزايدة</span>
-              <span className="text-sm font-medium text-green-600">
-                {formatPrice(minBidPrice)}
-              </span>
-            </div>
-          )}
+          <div className="flex justify-between items-center text-xs text-blue-600">
+             <span>رسوم الالتزام المطلوبة</span>
+             <span className="font-bold">{formatPrice(TOTAL_FEE_SAR)} (شاملة الضريبة)</span>
+          </div>
         </div>
 
-        {/* Bid form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="bid-amount">مبلغ المزايدة (ريال سعودي)</Label>
-            <Input
-              id="bid-amount"
-              type="number"
-              value={bidAmount}
-              onChange={(e) => setBidAmount(e.target.value)}
-              placeholder="أدخل مبلغ المزايدة"
-              min={minBidPrice || 1}
-              max={wakalaPrice - 1}
-              step="500"
-              className="text-lg"
-              dir="ltr"
-            />
-          </div>
+        {currentUserBid && (
+           <Alert className="bg-green-50 border-green-200">
+             <CheckCircle className="w-4 h-4 text-green-600" />
+             <AlertDescription className="text-green-800">
+               عرضك الحالي: <strong>{formatPrice(currentUserBid)}</strong>
+               {locked && <span> (مدفوع)</span>}
+             </AlertDescription>
+           </Alert>
+        )}
 
-          {/* Bid feedback */}
-          {bidValue > 0 && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Custom Amount Input */}
             <div className="space-y-2">
-              {isValidBid ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="flex justify-between items-center text-green-700">
-                    <span className="text-sm font-medium">الوفر المتوقع</span>
-                    <span className="text-lg font-bold">{formatPrice(savings)}</span>
-                  </div>
-                  <div className="text-xs text-green-600 mt-1">
-                    نسبة الوفر: {((savings / wakalaPrice) * 100).toFixed(1)}%
-                  </div>
+                <Label>قيمة العرض (ريال)</Label>
+                <div className="relative">
+                    <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input 
+                        type="number" 
+                        placeholder="أدخل المبلغ..." 
+                        className="pr-10"
+                        value={customAmount}
+                        onChange={(e) => {
+                            setCustomAmount(e.target.value)
+                            setSelectedSlot(null)
+                        }}
+                        disabled={locked || isSubmitting}
+                    />
                 </div>
-              ) : (
+                <p className="text-xs text-gray-500">
+                    سيتم خصم {RESERVATION_FEE_SAR} ريال كرسوم التزام من هذا العرض عند التقديم للتاجر.
+                </p>
+            </div>
+            
+            {hasSlots && (
+                <div className="space-y-2">
+                    <Label className="text-xs text-gray-400">أو اختر من خيارات التاجر السريعة:</Label>
+                    <div className="flex flex-wrap gap-2">
+                        {priceSlots.map(slot => (
+                            <button
+                                key={slot}
+                                type="button"
+                                onClick={() => {
+                                    setSelectedSlot(slot)
+                                    setCustomAmount(slot.toString())
+                                }}
+                                disabled={locked || isSubmitting}
+                                className={`px-3 py-1 text-sm rounded-full border ${
+                                    selectedSlot === slot 
+                                    ? 'bg-primary text-white border-primary' 
+                                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary'
+                                }`}
+                            >
+                                {formatPrice(slot)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {error && (
                 <Alert variant="destructive">
                   <AlertTriangle className="w-4 h-4" />
-                  <AlertDescription>
-                    {bidValue >= wakalaPrice 
-                      ? 'المزايدة يجب أن تكون أقل من سعر الوكالة'
-                      : minBidPrice && bidValue < minBidPrice
-                      ? `الحد الأدنى للمزايدة هو ${formatPrice(minBidPrice)}`
-                      : 'يرجى إدخال مبلغ صحيح'}
-                  </AlertDescription>
+                  <AlertDescription>{error}</AlertDescription>
                 </Alert>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="w-4 h-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <Button 
-            type="submit" 
-            className="w-full bg-green-600 hover:bg-green-700"
-            disabled={!isValidBid || isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                جاري وضع المزايدة...
-              </>
-            ) : currentUserBid ? (
-              'تحديث المزايدة'
-            ) : (
-              'وضع المزايدة'
             )}
-          </Button>
+
+            <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90"
+                disabled={locked || !isValidBid || isSubmitting}
+            >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    جاري المعالجة...
+                  </>
+                ) : currentUserBid ? (
+                  locked ? 'تم تأكيد الحجز' : 'تحديث الحجز'
+                ) : (
+                  'احجز الآن (ادفع الرسوم)'
+                )}
+            </Button>
         </form>
 
-        {/* Commitment fee notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="flex items-start gap-2">
-            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
-              <span className="text-white text-xs font-bold">ℹ</span>
-            </div>
-            <div className="text-blue-700">
-              <p className="text-sm font-medium mb-1">رسوم الالتزام - 500 ريال</p>
-              <ul className="text-xs space-y-1">
-                <li>• تُدفع عند قبول مزايدتك</li>
-                <li>• تُخصم من المبلغ النهائي عند إتمام الصفقة</li>
-                <li>• تُسترد في حالة عدم إتمام الصفقة</li>
-                <li>• تضمن جدية المزايدين</li>
-              </ul>
-            </div>
-          </div>
+        {/* Info */}
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+             <p className="font-semibold">كيف يعمل النظام؟</p>
+             <p>1. تقدم عرضك وتدفع رسوم الالتزام ({formatPrice(TOTAL_FEE_SAR)}).</p>
+             <p>2. يتم بث عرضك لجميع الوكلاء الذين يملكون هذه السيارة.</p>
+             <p>3. أول وكيل يقبل العرض يفوز بالصفقة.</p>
+             <p>4. يتم البيع والشراء بالأولوية.</p>
         </div>
+
       </CardContent>
+
+      <Dialog open={showPayModal} onOpenChange={setShowPayModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>تأكيد العرض ودفع الرسوم</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <DialogDescription>
+              لتأكيد جديتك، يرجى دفع رسوم الالتزام. المبلغ غير مسترد في حال قبول التاجر لعرضك وانسحابك، ولكنه يخصم من قيمة السيارة النهائية.
+            </DialogDescription>
+            
+            <div className="bg-gray-100 p-4 rounded-md flex justify-between items-center">
+                <span>المبلغ المطلوب:</span>
+                <span className="font-bold text-lg">{formatPrice(TOTAL_FEE_SAR)}</span>
+            </div>
+
+            {createdBidId && (
+              <MoyasarCheckout
+                amountHalalas={TOTAL_FEE_HALALAS}
+                description={`Commitment Fee for Offer #${createdBidId}`}
+                bidId={createdBidId}
+                carId={configId} // Passing Config ID to ensure redirect works
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
+
+

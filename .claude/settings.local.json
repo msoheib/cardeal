@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx supabase db push)",
+      "Bash(npx supabase:*)",
+      "Bash(npx supabase migration:*)",
+      "Bash(psql:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker restart:*)",
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(curl:*)",
+      "Bash(node scripts/seed-cars.js:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
