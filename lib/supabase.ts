@@ -34,6 +34,18 @@ export interface Dealer {
   updated_at: string
 }
 
+export interface DealerPublicProfile {
+  id: string
+  company_name: string
+  city: string
+  verified: boolean
+  logo_url?: string
+  description?: string
+  rating: number
+  total_sales: number
+  created_at?: string
+}
+
 export interface Car {
   id: string
   dealer_id: string
@@ -54,6 +66,7 @@ export interface Car {
   min_bid_price?: number
   trim?: string
   color?: string
+  origin_locale?: string
   price_slots?: number[]
   dealer?: Dealer
 }
@@ -112,6 +125,7 @@ export interface Deal {
   created_at: string
   car?: Car
   dealer?: Dealer
+  dealer_public?: DealerPublicProfile
   buyer?: User
 }
 
@@ -123,6 +137,7 @@ export interface CarConfiguration {
   variant?: string
   trim?: string
   color?: string
+  origin_locale?: string
   msrp: number
   description?: string
   specifications: any

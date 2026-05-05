@@ -9,8 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { BidInput } from '@/components/bid-input'
+import { CarFallbackVisual } from '@/components/car-fallback-visual'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { supabase, CarConfiguration, Bid, Deal } from '@/lib/supabase'
+import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
+import { formatCurrencySar } from '@/lib/format'
 import { getConfigById, getConfigBids } from '@/lib/cars'
 import { getCurrentUser } from '@/lib/auth'
 import { 
@@ -21,15 +24,17 @@ import {
   Settings,
   Users,
   Building2,
-  TrendingUp
+  TrendingUp,
+  MapPin
 } from 'lucide-react'
 
 // Extended type for Inventory with Dealer info
 interface InventoryItem {
   id: string
+  dealer_id: string
   quantity: number
   status: string
-  dealer: {
+  dealer?: {
     company_name: string
     city: string
     verified: boolean
@@ -38,7 +43,8 @@ interface InventoryItem {
 
 function CarDetailContent() {
   const params = useParams()
-  const configId = params.id as string
+  const paramId = params?.id
+  const configId = Array.isArray(paramId) ? paramId[0] : paramId
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -54,16 +60,12 @@ function CarDetailContent() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [confirmedDeals, setConfirmedDeals] = useState<Deal[]>([])
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(price)
-  }
-
   const loadData = async () => {
+    if (!configId) {
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     
     // 1. Load Config
@@ -76,15 +78,26 @@ function CarDetailContent() {
     const { data: invData } = await supabase
         .from('dealer_inventory')
         .select(`
-            id, quantity, status,
-            dealer:dealers(company_name, city, verified)
+            id, dealer_id, quantity, status
         `)
         .eq('car_configuration_id', configId)
         .eq('status', 'active')
         .gt('quantity', 0)
     
     if (invData) {
-        setInventory(invData as any)
+        const dealerIds = Array.from(new Set(invData.map((item: any) => item.dealer_id).filter(Boolean)))
+        const { data: publicDealers } = dealerIds.length
+          ? await supabase
+              .from('dealer_public_profiles')
+              .select('id, company_name, city, verified')
+              .in('id', dealerIds)
+          : { data: [] }
+
+        const dealerById = new Map((publicDealers || []).map((dealer: any) => [dealer.id, dealer]))
+        setInventory(invData.map((item: any) => ({
+          ...item,
+          dealer: dealerById.get(item.dealer_id)
+        })) as any)
     }
 
     // 3. Load User & Bids
@@ -175,11 +188,12 @@ function CarDetailContent() {
 
   const totalQuantity = inventory.reduce((sum, item) => sum + item.quantity, 0)
   const dealerCount = inventory.length
+  const title = vehicleTitle(config)
+  const trimLabel = localizeVehicleText(config.trim) || 'مواصفات وكالة'
+  const originLabel = localizeVehicleText(config.origin_locale) || 'غير محدد'
   
-  // Use config images or fallback
-  const images = config.images?.length > 0 ? config.images : [
-    'https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&cs=tinysrgb&w=800'
-  ]
+  const images = config.images || []
+  const hasUploadedImages = images.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50 text-right" dir="rtl">
@@ -211,10 +225,13 @@ function CarDetailContent() {
             <div>
                <div className="flex items-center gap-3 mb-2">
                  <h1 className="text-3xl font-bold text-gray-900">
-                   {config.make} {config.model} {config.year}
+                   {title}
                  </h1>
                  <Badge variant="outline" className="text-sm">
-                    {config.trim}
+                    {trimLabel}
+                 </Badge>
+                 <Badge variant="secondary" className="text-sm">
+                    {originLabel}
                  </Badge>
                </div>
                <div className="flex items-center gap-4 text-gray-600">
@@ -228,14 +245,18 @@ function CarDetailContent() {
             {/* Image Gallery */}
             <Card className="overflow-hidden border-0 shadow-lg">
                <div className="relative h-[400px] w-full bg-gray-100">
-                  <Image
-                    src={images[selectedImageIndex]}
-                    alt={`${config.make} ${config.model}`}
-                    fill
-                    className="object-cover"
-                  />
+                  {hasUploadedImages ? (
+                    <Image
+                      src={images[selectedImageIndex]}
+                      alt={title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <CarFallbackVisual config={config} variant="detail" showCaption />
+                  )}
                </div>
-               {images.length > 1 && (
+               {hasUploadedImages && images.length > 1 && (
                  <div className="flex gap-2 p-4 overflow-x-auto">
                     {images.map((img, idx) => (
                        <button 
@@ -245,7 +266,7 @@ function CarDetailContent() {
                              selectedImageIndex === idx ? 'border-primary' : 'border-transparent opacity-70 hover:opacity-100'
                          }`}
                        >
-                         <Image src={img} alt="thumbnail" fill className="object-cover" />
+                         <Image src={img} alt="صورة مصغرة" fill className="object-cover" />
                        </button>
                     ))}
                  </div>
@@ -261,22 +282,26 @@ function CarDetailContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                    <div className="space-y-1">
                       <span className="text-xs text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> السنة</span>
                       <p className="font-medium">{config.year}</p>
                    </div>
                    <div className="space-y-1">
                       <span className="text-xs text-gray-500 flex items-center gap-1"><Gauge className="w-3 h-3"/> المحرك</span>
-                      <p className="font-medium">{config.specifications?.engine || '-'}</p>
+                      <p className="font-medium">{localizeVehicleText(config.specifications?.engine) || '-'}</p>
                    </div>
                    <div className="space-y-1">
                       <span className="text-xs text-gray-500 flex items-center gap-1"><Fuel className="w-3 h-3"/> الوقود</span>
-                      <p className="font-medium">{config.specifications?.fuel_type || 'بنزين'}</p>
+                      <p className="font-medium">{localizeVehicleText(config.specifications?.fuel_type) || 'بنزين'}</p>
                    </div>
                    <div className="space-y-1">
                       <span className="text-xs text-gray-500 flex items-center gap-1"><Settings className="w-3 h-3"/> القير</span>
-                      <p className="font-medium">{config.specifications?.transmission || 'أوتوماتيك'}</p>
+                      <p className="font-medium">{localizeVehicleText(config.specifications?.transmission) || 'أوتوماتيك'}</p>
+                   </div>
+                   <div className="space-y-1">
+                      <span className="text-xs text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/> المنشأ</span>
+                      <p className="font-medium">{originLabel}</p>
                    </div>
                 </div>
                 {config.description && (
@@ -356,7 +381,7 @@ function CarDetailContent() {
                                  <span className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">{idx + 1}</span>
                                  صفقة مؤكدة
                               </span>
-                              <span className="font-bold text-green-700">{formatPrice(deal.final_price)}</span>
+                              <span className="font-bold text-green-700">{formatCurrencySar(deal.final_price)}</span>
                            </div>
                         ))}
                      </div>
@@ -387,7 +412,7 @@ function CarDetailContent() {
                                  {bid.status === 'accepted' && <Badge className="text-xs bg-green-100 text-green-700">مقبول</Badge>}
                                  {bid.status === 'pending' && bid.commitment_fee_paid && <Badge className="text-xs bg-blue-100 text-blue-700">مؤكد</Badge>}
                               </span>
-                              <span className="font-medium">{formatPrice(bid.bid_price)}</span>
+                              <span className="font-medium">{formatCurrencySar(bid.bid_price)}</span>
                            </div>
                         ))}
                      </div>

@@ -18,6 +18,16 @@ import {
   approveDealerApplication,
   rejectDealerApplication
 } from '@/lib/admin'
+import {
+  getAllSupportTickets,
+  reviewSupportTicket,
+  SUPPORT_TICKET_REASONS,
+  SUPPORT_TICKET_STATUSES,
+  SupportTicketReason,
+  SupportTicketStatus
+} from '@/lib/tickets'
+import { vehicleTitle } from '@/lib/arabic-display'
+import { formatCurrencySar, formatGregorianDate } from '@/lib/format'
 import { signOut } from '@/lib/auth'
 import { User } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
@@ -30,7 +40,8 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  Shield
+  Shield,
+  LifeBuoy
 } from 'lucide-react'
 
 interface AdminDashboardProps {
@@ -43,18 +54,10 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   const [deals, setDeals] = useState<any[]>([])
   const [pendingCars, setPendingCars] = useState<any[]>([])
   const [dealerApplications, setDealerApplications] = useState<any[]>([])
+  const [supportTickets, setSupportTickets] = useState<any[]>([])
   const [salesReport, setSalesReport] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(price)
-  }
 
   const loadAdminData = async () => {
     setIsLoading(true)
@@ -86,6 +89,11 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     const { data: dealerApplicationsData } = await getDealerApplications()
     if (dealerApplicationsData) {
       setDealerApplications(dealerApplicationsData)
+    }
+
+    const { data: supportTicketsData } = await getAllSupportTickets()
+    if (supportTicketsData) {
+      setSupportTickets(supportTicketsData)
     }
 
     setIsLoading(false)
@@ -178,6 +186,29 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     }
   }
 
+  const handleReviewSupportTicket = async (
+    ticketId: string,
+    status: Exclude<SupportTicketStatus, 'open'>
+  ) => {
+    const notes = window.prompt('ملاحظات الإدارة (اختياري)') || ''
+    const result = await reviewSupportTicket({ ticketId, status, adminNotes: notes })
+
+    if (result.error) {
+      toast({
+        title: 'خطأ',
+        description: typeof result.error === 'string' ? result.error : 'تعذر تحديث التذكرة',
+        variant: 'destructive'
+      })
+    } else {
+      toast({
+        title: 'تم تحديث التذكرة',
+        description: 'تم حفظ قرار الإدارة على التذكرة.',
+        variant: 'default'
+      })
+      loadAdminData()
+    }
+  }
+
   useEffect(() => {
     loadAdminData()
   }, [])
@@ -199,6 +230,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         return <Badge variant="destructive">مرفوضة</Badge>
       case 'completed':
         return <Badge className="bg-primary/10 text-primary">مكتملة</Badge>
+      case 'refunded':
+        return <Badge className="bg-blue-100 text-blue-800">مستردة</Badge>
+      case 'open':
+        return <Badge className="bg-amber-100 text-amber-800">مفتوحة</Badge>
+      case 'under_review':
+        return <Badge className="bg-blue-100 text-blue-800">قيد المراجعة</Badge>
       case 'active':
         return <Badge className="bg-primary/10 text-primary">نشط</Badge>
       case 'draft':
@@ -251,7 +288,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
       <div className="container mx-auto px-4 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -299,10 +336,24 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                 <div>
                   <p className="text-sm text-gray-600">رسوم الالتزام المحصلة</p>
                   <p className="text-2xl font-bold text-primary">
-                    {formatPrice(stats?.totalFeesCollected || 0)}
+                    {formatCurrencySar(stats?.totalFeesCollected || 0)}
                   </p>
                 </div>
                 <DollarSign className="w-8 h-8 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">تذاكر الدعم المفتوحة</p>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {stats?.openSupportTickets || 0}
+                  </p>
+                </div>
+                <LifeBuoy className="w-8 h-8 text-amber-500" />
               </div>
             </CardContent>
           </Card>
@@ -310,12 +361,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
         {/* Main Content */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
             <TabsTrigger value="cars">السيارات المعلقة</TabsTrigger>
             <TabsTrigger value="dealers">طلبات التجار</TabsTrigger>
             <TabsTrigger value="bids">المزايدات</TabsTrigger>
             <TabsTrigger value="deals">الصفقات</TabsTrigger>
+            <TabsTrigger value="support">الدعم</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -394,19 +446,19 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-primary">
-                        {formatPrice(salesReport.summary.totalRevenue)}
+                        {formatCurrencySar(salesReport.summary.totalRevenue)}
                       </div>
                       <div className="text-sm text-gray-600">إجمالي الإيرادات</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
-                        {formatPrice(salesReport.summary.totalSavings)}
+                        {formatCurrencySar(salesReport.summary.totalSavings)}
                       </div>
                       <div className="text-sm text-gray-600">إجمالي الوفر</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-purple-600">
-                        {formatPrice(salesReport.summary.averageDiscount)}
+                        {formatCurrencySar(salesReport.summary.averageDiscount)}
                       </div>
                       <div className="text-sm text-gray-600">متوسط الخصم</div>
                     </div>
@@ -443,7 +495,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                         <div className="flex-1">
                           <div className="flex items-center gap-4 mb-2">
                             <h3 className="text-lg font-semibold">
-                              {car.make} {car.model} {car.year}
+                              {vehicleTitle(car)}
                             </h3>
                             {getStatusBadge(car.status)}
                           </div>
@@ -455,7 +507,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                             </div>
                             <div>
                               <span className="text-gray-600">سعر الوكالة:</span>
-                              <div className="font-semibold">{formatPrice(car.wakala_price)}</div>
+                              <div className="font-semibold">{formatCurrencySar(car.wakala_price)}</div>
                             </div>
                             <div>
                               <span className="text-gray-600">الكمية:</span>
@@ -464,7 +516,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                             <div>
                               <span className="text-gray-600">تاريخ الإضافة:</span>
                               <div className="font-semibold">
-                                {new Date(car.created_at).toLocaleDateString('ar-SA')}
+                                {formatGregorianDate(car.created_at)}
                               </div>
                             </div>
                           </div>
@@ -554,7 +606,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                               <div>
                                 <span className="text-gray-600">تاريخ الطلب:</span>
                                 <div className="font-semibold">
-                                  {new Date(application.created_at).toLocaleDateString('ar-SA')}
+                                  {formatGregorianDate(application.created_at)}
                                 </div>
                               </div>
                               {application.rejection_reason && (
@@ -619,15 +671,15 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                       return (
                         <TableRow key={bid.id}>
                           <TableCell>
-                            {configuration?.make} {configuration?.model} {configuration?.year}
+                            {vehicleTitle(configuration || {})}
                           </TableCell>
                           <TableCell>{buyer?.full_name}</TableCell>
                           <TableCell className="font-semibold">
-                            {formatPrice(bid.bid_price)}
+                            {formatCurrencySar(bid.bid_price)}
                           </TableCell>
                           <TableCell>{getStatusBadge(bid.status)}</TableCell>
                           <TableCell>
-                            {new Date(bid.created_at).toLocaleDateString('ar-SA')}
+                            {formatGregorianDate(bid.created_at)}
                           </TableCell>
                         </TableRow>
                       )
@@ -662,16 +714,16 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                       return (
                         <TableRow key={deal.id}>
                           <TableCell>
-                            {configuration?.make} {configuration?.model} {configuration?.year}
+                            {vehicleTitle(configuration || {})}
                           </TableCell>
                           <TableCell>{dealer?.company_name}</TableCell>
                           <TableCell>{buyer?.full_name}</TableCell>
                           <TableCell className="font-semibold text-primary">
-                            {formatPrice(deal.final_price)}
+                            {formatCurrencySar(deal.final_price)}
                           </TableCell>
                           <TableCell>{getStatusBadge(deal.status)}</TableCell>
                           <TableCell>
-                            {new Date(deal.created_at).toLocaleDateString('ar-SA')}
+                            {formatGregorianDate(deal.created_at)}
                           </TableCell>
                         </TableRow>
                       )
@@ -680,6 +732,121 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="support" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">تذاكر الشكاوى والاسترداد</h2>
+              <Badge variant="secondary">{supportTickets.length} تذكرة</Badge>
+            </div>
+
+            {supportTickets.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <LifeBuoy className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">لا توجد تذاكر دعم</h3>
+                  <p className="text-gray-600">ستظهر شكاوى المشترين وطلبات الاسترداد هنا.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {supportTickets.map((ticket) => {
+                  const deal = ticket.deal as any
+                  const configuration = deal?.configuration as any
+                  const dealer = ticket.dealer as any
+                  const buyer = ticket.buyer as any
+                  const reason = SUPPORT_TICKET_REASONS[ticket.reason as SupportTicketReason] || ticket.reason
+                  const statusLabel = SUPPORT_TICKET_STATUSES[ticket.status as SupportTicketStatus] || ticket.status
+                  const canReview = ticket.status === 'open' || ticket.status === 'under_review'
+
+                  return (
+                    <Card key={ticket.id}>
+                      <CardContent className="p-6 space-y-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <h3 className="text-lg font-semibold">{reason}</h3>
+                              {getStatusBadge(ticket.status)}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {vehicleTitle(configuration || {})} • {formatGregorianDate(ticket.created_at)}
+                            </div>
+                          </div>
+                          <div className="text-left">
+                            <div className="text-xs text-gray-500">مبلغ الاسترداد المطلوب</div>
+                            <div className="text-lg font-bold text-primary">
+                              {formatCurrencySar(ticket.requested_refund_amount || 0)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                          <div>
+                            <span className="text-gray-600">المشتري:</span>
+                            <div className="font-semibold">{buyer?.full_name || '-'}</div>
+                            <div className="text-xs text-gray-500">{buyer?.email || buyer?.phone}</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">المورد:</span>
+                            <div className="font-semibold">{dealer?.company_name || '-'}</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">حالة التذكرة:</span>
+                            <div className="font-semibold">{statusLabel}</div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg bg-gray-50 p-4 text-sm leading-6 text-gray-800">
+                          {ticket.description}
+                        </div>
+
+                        {ticket.admin_notes && (
+                          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+                            <span className="font-semibold">ملاحظات الإدارة: </span>
+                            {ticket.admin_notes}
+                          </div>
+                        )}
+
+                        {canReview && (
+                          <div className="flex flex-wrap gap-2">
+                            {ticket.status === 'open' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReviewSupportTicket(ticket.id, 'under_review')}
+                              >
+                                قيد المراجعة
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              className="bg-primary hover:bg-primary/90"
+                              onClick={() => handleReviewSupportTicket(ticket.id, 'approved')}
+                            >
+                              {Number(ticket.requested_refund_amount || 0) > 0 ? 'الموافقة على الاسترداد' : 'اعتماد التذكرة'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleReviewSupportTicket(ticket.id, 'rejected')}
+                            >
+                              رفض الطلب
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReviewSupportTicket(ticket.id, 'resolved')}
+                            >
+                              تم الحل بدون استرداد
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

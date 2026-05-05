@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as RechartsPrimitive from 'recharts';
 
+import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -28,7 +29,7 @@ function useChart() {
   const context = React.useContext(ChartContext);
 
   if (!context) {
-    throw new Error('useChart must be used within a <ChartContainer />');
+    throw new Error('يجب استخدام useChart داخل <ChartContainer />');
   }
 
   return context;
@@ -240,7 +241,7 @@ const ChartTooltipContent = React.forwardRef<
                       </div>
                       {item.value && (
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
+                          {typeof item.value === 'number' ? formatNumber(item.value) : item.value}
                         </span>
                       )}
                     </div>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { toArabicError } from '@/lib/arabic-errors'
 import { getCurrentUser } from '@/lib/auth'
 import { supabase, User } from '@/lib/supabase'
 
@@ -121,7 +122,7 @@ export default function DealerApplyPage() {
     const { data, error: submitError } = await request
 
     if (submitError) {
-      setError(submitError.message)
+      setError(toArabicError(submitError, 'تعذر إرسال طلب الاعتماد. يرجى المحاولة مرة أخرى.'))
     } else if (data) {
       setApplication(data as DealerApplication)
     }

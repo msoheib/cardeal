@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/button'
 function PayContent() {
   const params = useSearchParams()
   const router = useRouter()
-  const bidId = params.get('bidId') || ''
-  const carId = params.get('carId') || ''
+  const bidId = params?.get('bidId') || ''
+  const carId = params?.get('carId') || ''
 
   const publishableKey = process.env.NEXT_PUBLIC_MOYASAR_PUBLISHABLE_KEY || ''
   const amountHalalas = 50000
-  const description = 'Commitment Fee 500 SAR'
+  const description = 'رسوم الالتزام 500 ريال'
 
   const callbackUrl = useMemo(() => {
     const base = typeof window !== 'undefined' ? window.location.origin : ''
@@ -48,7 +48,7 @@ function PayContent() {
             <input type="hidden" name="metadata[fee]" value="commitment_fee" />
 
             <Button type="submit" className="w-full">
-              الدفع عبر Moyasar
+              الدفع عبر ميسّر
             </Button>
           </form>
         </CardContent>

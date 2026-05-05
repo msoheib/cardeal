@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { signIn } from '@/lib/auth'
+import { toArabicError } from '@/lib/arabic-errors'
 import { getSafeRedirectPath } from '@/lib/redirect'
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react'
 
@@ -30,7 +31,7 @@ function LoginContent() {
     const { error: signInError } = await signIn(email, password)
 
     if (signInError) {
-      setError(signInError.message)
+      setError(toArabicError(signInError, 'تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.'))
     } else {
       // Redirect to the original page or dashboard
       router.push(safeRedirectUrl)
@@ -48,7 +49,7 @@ function LoginContent() {
             العودة للرئيسية
           </Link>
           
-          <h1 className="text-2xl font-bold text-gray-900">CarDeal</h1>
+          <h1 className="text-2xl font-bold text-gray-900">كار ديل</h1>
         </div>
 
         <Card className="shadow-lg">

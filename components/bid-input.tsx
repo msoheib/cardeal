@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { DollarSign, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
 import { placeBid } from '@/lib/cars'
+import { toArabicError } from '@/lib/arabic-errors'
+import { formatCurrencySar } from '@/lib/format'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import MoyasarCheckout from '@/components/moyasar-checkout'
 import { useToast } from '@/hooks/use-toast'
@@ -42,16 +44,6 @@ export function BidInput({
   const [showPayModal, setShowPayModal] = useState(false)
   const [createdBidId, setCreatedBidId] = useState<string>('')
   
-  // Format price helper (defined early for guest view)
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(price)
-  }
-
   // For guests, show a login prompt instead of the bid form
   if (!userId) {
     return (
@@ -65,8 +57,8 @@ export function BidInput({
         <CardContent className="space-y-4">
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">سعر الوكالة (MSRP)</span>
-              <span className="text-lg font-bold text-gray-900">{formatPrice(msrp)}</span>
+              <span className="text-sm text-gray-600">سعر الوكالة</span>
+              <span className="text-lg font-bold text-gray-900">{formatCurrencySar(msrp)}</span>
             </div>
           </div>
           <Alert className="bg-amber-50 border-amber-200">
@@ -131,7 +123,7 @@ export function BidInput({
       })
 
       if (bidError) {
-        setError(typeof bidError === 'string' ? bidError : (bidError as any).message || 'حدث خطأ')
+        setError(toArabicError(bidError, 'لم نتمكن من تسجيل العرض، حاول مرة أخرى.'))
         toast({
             title: "خطأ",
             description: "لم نتمكن من تسجيل العرض، حاول مرة أخرى",
@@ -161,14 +153,14 @@ export function BidInput({
         {/* Context */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
            <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">سعر الوكالة (MSRP)</span>
+            <span className="text-sm text-gray-600">سعر الوكالة</span>
             <span className="text-lg font-bold text-gray-900">
-              {formatPrice(msrp)}
+              {formatCurrencySar(msrp)}
             </span>
           </div>
           <div className="flex justify-between items-center text-xs text-blue-600">
              <span>رسوم الالتزام المطلوبة</span>
-             <span className="font-bold">{formatPrice(TOTAL_FEE_SAR)} (شاملة الضريبة)</span>
+             <span className="font-bold">{formatCurrencySar(TOTAL_FEE_SAR)} (شاملة الضريبة)</span>
           </div>
         </div>
 
@@ -176,7 +168,7 @@ export function BidInput({
            <Alert className="bg-green-50 border-green-200">
              <CheckCircle className="w-4 h-4 text-green-600" />
              <AlertDescription className="text-green-800">
-               عرضك الحالي: <strong>{formatPrice(currentUserBid)}</strong>
+               عرضك الحالي: <strong>{formatCurrencySar(currentUserBid)}</strong>
                {locked && <span> (مدفوع)</span>}
              </AlertDescription>
            </Alert>
@@ -225,7 +217,7 @@ export function BidInput({
                                     : 'bg-white text-gray-700 border-gray-200 hover:border-primary'
                                 }`}
                             >
-                                {formatPrice(slot)}
+                                {formatCurrencySar(slot)}
                             </button>
                         ))}
                     </div>
@@ -260,7 +252,7 @@ export function BidInput({
         {/* Info */}
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-800 space-y-1">
              <p className="font-semibold">كيف يعمل النظام؟</p>
-             <p>1. تقدم عرضك وتدفع رسوم الالتزام ({formatPrice(TOTAL_FEE_SAR)}).</p>
+             <p>1. تقدم عرضك وتدفع رسوم الالتزام ({formatCurrencySar(TOTAL_FEE_SAR)}).</p>
              <p>2. يتم بث عرضك لجميع الوكلاء الذين يملكون هذه السيارة.</p>
              <p>3. أول وكيل يقبل العرض يفوز بالصفقة.</p>
              <p>4. يتم البيع والشراء بالأولوية.</p>
@@ -280,13 +272,13 @@ export function BidInput({
             
             <div className="bg-gray-100 p-4 rounded-md flex justify-between items-center">
                 <span>المبلغ المطلوب:</span>
-                <span className="font-bold text-lg">{formatPrice(TOTAL_FEE_SAR)}</span>
+                <span className="font-bold text-lg">{formatCurrencySar(TOTAL_FEE_SAR)}</span>
             </div>
 
             {createdBidId && (
               <MoyasarCheckout
                 amountHalalas={TOTAL_FEE_HALALAS}
-                description={`Commitment Fee for Offer #${createdBidId}`}
+                description={`رسوم الالتزام للعرض رقم ${createdBidId}`}
                 bidId={createdBidId}
                 carId={configId} // Passing Config ID to ensure redirect works
               />

@@ -98,7 +98,7 @@ export default function MoyasarCheckout({ amountHalalas, description, bidId, car
         language: 'ar'
       })
     } catch (err) {
-      console.error('Moyasar init error:', err)
+      console.error('خطأ في تهيئة نموذج الدفع:', err)
       setError('حدث خطأ أثناء تحميل نموذج الدفع.')
     }
 

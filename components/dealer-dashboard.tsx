@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getDealerInventory, getDealerOpportunities } from '@/lib/cars'
 import { acceptBid, getDealsByDealer } from '@/lib/deals' // Use singular acceptBid
+import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
+import { formatCurrencySar, formatGregorianDate, formatGregorianTime } from '@/lib/format'
 import { signOut } from '@/lib/auth'
 import { supabase, User, CarConfiguration, Deal } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
@@ -18,7 +20,10 @@ import {
   PlusCircle,
   AlertCircle,
   Clock,
-  DollarSign
+  DollarSign,
+  Lock,
+  Phone,
+  CheckCircle
 } from 'lucide-react'
 
 interface DealerDashboardProps {
@@ -41,15 +46,6 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
   const [deals, setDeals] = useState<Deal[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(price)
-  }
 
   const loadDashboardData = async () => {
     // Get dealer info first
@@ -98,7 +94,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     } else {
       toast({
         title: "تم قبول العرض!",
-        description: `تم قبول العرض بقيمة ${formatPrice(amount)} بنجاح.`,
+        description: `تم قبول العرض بقيمة ${formatCurrencySar(amount)}. بانتظار موافقة المشتري لإظهار بيانات التواصل.`,
         variant: "default"
       })
       // Refresh data to move from opportunities to deals
@@ -109,6 +105,21 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
   const handleSignOut = async () => {
     await signOut()
     window.location.href = '/'
+  }
+
+  const getDealStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending_payment':
+        return <Badge className="bg-amber-100 text-amber-800">بانتظار موافقة المشتري</Badge>
+      case 'completed':
+        return <Badge className="bg-primary/10 text-primary">تمت موافقة المشتري</Badge>
+      case 'cancelled':
+        return <Badge variant="destructive">ملغاة</Badge>
+      case 'refunded':
+        return <Badge variant="outline">مستردة</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
   }
 
   return (
@@ -159,7 +170,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
              <Card>
                 <CardContent className="p-6 flex items-center justify-between">
                     <div>
-                        <p className="text-sm font-medium text-gray-500">إجمالي المبيعات</p>
+                        <p className="text-sm font-medium text-gray-500">طلبات قيد التتبع</p>
                         <h3 className="text-2xl font-bold text-gray-900 mt-1">{deals.length}</h3>
                     </div>
                     <TrendingUp className="w-8 h-8 text-green-500" />
@@ -178,7 +189,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                     )}
                 </TabsTrigger>
                 <TabsTrigger value="inventory">المخزون</TabsTrigger>
-                <TabsTrigger value="deals">سجل الصفقات</TabsTrigger>
+                <TabsTrigger value="deals">تتبع الطلبات</TabsTrigger>
             </TabsList>
 
             {/* Opportunities (Pending Bids) */}
@@ -208,13 +219,13 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-lg text-gray-900">
-                                                    عرض بقيمة {formatPrice(bid.bid_price)}
+                                                    عرض بقيمة {formatCurrencySar(bid.bid_price)}
                                                 </h3>
                                                 <p className="text-sm text-gray-600">
-                                                    على سيارة: {config.make} {config.model} {config.year} - {config.trim}
+                                                    على سيارة: {vehicleTitle(config)} - {localizeVehicleText(config.trim)}
                                                 </p>
                                                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                                                    <span>قبل {new Date(bid.created_at).toLocaleTimeString('ar-SA')}</span>
+                                                    <span>قبل {formatGregorianTime(bid.created_at)}</span>
                                                     <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full">رسوم الالتزام مدفوعة</span>
                                                 </div>
                                             </div>
@@ -222,7 +233,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                                         <div className="flex items-center gap-4">
                                              <div className="text-left">
                                                 <p className="text-xs text-gray-500">صافي العرض المقدر</p>
-                                                <p className="font-bold text-gray-900">{formatPrice(bid.net_offer_amount || bid.bid_price - 500)}</p>
+                                                <p className="font-bold text-gray-900">{formatCurrencySar(bid.net_offer_amount || bid.bid_price - 500)}</p>
                                              </div>
                                              <Button 
                                                 onClick={() => handleAcceptBid(bid.id, bid.bid_price)} 
@@ -266,14 +277,14 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                                         {item.quantity === 0 && <Badge variant="destructive">نفذت الكمية</Badge>}
                                     </div>
                                     <CardTitle className="mt-2 text-lg">
-                                        {item.configuration.make} {item.configuration.model} {item.configuration.year}
+                                        {vehicleTitle(item.configuration)}
                                     </CardTitle>
-                                    <CardDescription>{item.configuration.trim}</CardDescription>
+                                    <CardDescription>{localizeVehicleText(item.configuration.trim)}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-end">
                                     <div className="flex justify-between items-center mb-4">
                                         <span className="text-sm text-gray-500">الكمية: {item.quantity}</span>
-                                        <span className="font-bold text-primary">{formatPrice(item.configuration.msrp)}</span>
+                                        <span className="font-bold text-primary">{formatCurrencySar(item.configuration.msrp)}</span>
                                     </div>
                                     <div className="flex gap-2">
                                         <Link href={`/cars/${item.car_configuration_id}`} className="flex-1">
@@ -290,45 +301,88 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
 
             {/* Deals */}
             <TabsContent value="deals" className="space-y-4">
-                <h2 className="text-xl font-semibold">سجل الصفقات</h2>
+                <h2 className="text-xl font-semibold">تتبع طلبات المشترين</h2>
                 {deals.length === 0 ? (
-                    <Card><CardContent className="p-8 text-center text-gray-500">لا توجد صفقات سابقة.</CardContent></Card>
+                    <Card><CardContent className="p-8 text-center text-gray-500">لا توجد طلبات مقبولة بعد.</CardContent></Card>
                 ) : (
                     <div className="space-y-4">
                         {deals.map(deal => {
                             const config = (deal as any).configuration
                             const buyer = (deal as any).buyer
+                            const isApproved = deal.status === 'completed'
+                            const trackingSteps = [
+                                { label: 'قبلت العرض', done: true },
+                                { label: 'موافقة المشتري', done: isApproved },
+                                { label: 'التواصل الخارجي', done: isApproved }
+                            ]
+
                             return (
                                 <Card key={deal.id}>
                                     <CardContent className="p-6 space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h3 className="font-bold text-gray-900">
-                                                    {config?.make} {config?.model} {config?.year} - {config?.trim}
+                                                    {vehicleTitle(config || {})} - {localizeVehicleText(config?.trim)}
                                                 </h3>
-                                                <p className="text-sm text-gray-500">بتاريخ {new Date(deal.created_at).toLocaleDateString('ar-SA')}</p>
+                                                <p className="text-sm text-gray-500">بتاريخ {formatGregorianDate(deal.created_at)}</p>
                                             </div>
                                             <div className="text-left">
-                                                <p className="font-bold text-primary">{formatPrice(deal.final_price)}</p>
-                                                <Badge variant={deal.status === 'completed' ? 'default' : 'secondary'}>
-                                                    {deal.status === 'pending_payment' ? 'في انتظار الدفع' : deal.status === 'completed' ? 'مكتملة' : deal.status}
-                                                </Badge>
+                                                <p className="font-bold text-primary">{formatCurrencySar(deal.final_price)}</p>
+                                                {getDealStatusBadge(deal.status)}
                                             </div>
                                         </div>
-                                        {/* Buyer Contact Info */}
-                                        <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-                                            <h4 className="font-semibold text-blue-900 mb-2">معلومات المشتري</h4>
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div>
-                                                    <span className="text-gray-600">الاسم: </span>
-                                                    <span className="font-medium">{buyer?.full_name || 'غير متوفر'}</span>
+
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                            {trackingSteps.map((step) => (
+                                                <div
+                                                    key={step.label}
+                                                    className={`rounded-lg border p-3 ${step.done ? 'border-primary/20 bg-primary/5' : 'border-amber-200 bg-amber-50'}`}
+                                                >
+                                                    <div className="flex items-center gap-2 text-sm font-semibold">
+                                                        {step.done ? (
+                                                            <CheckCircle className="h-4 w-4 text-primary" />
+                                                        ) : (
+                                                            <Clock className="h-4 w-4 text-amber-600" />
+                                                        )}
+                                                        {step.label}
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-gray-600">
+                                                        {step.done ? 'مكتمل' : 'بانتظار الإجراء'}
+                                                    </p>
                                                 </div>
-                                                <div>
-                                                    <span className="text-gray-600">الجوال: </span>
-                                                    <span className="font-medium" dir="ltr">{buyer?.phone || buyer?.email || 'غير متوفر'}</span>
+                                            ))}
+                                        </div>
+
+                                        {isApproved ? (
+                                            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                                                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                                                    <Phone className="h-4 w-4" />
+                                                    معلومات المشتري
+                                                </h4>
+                                                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+                                                    <div>
+                                                        <span className="text-gray-600">الاسم: </span>
+                                                        <span className="font-medium">{buyer?.full_name || 'غير متوفر'}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-600">الجوال: </span>
+                                                        <span className="font-medium" dir="ltr">{buyer?.phone || buyer?.email || 'غير متوفر'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <Lock className="mt-0.5 h-4 w-4 text-amber-700" />
+                                                    <div>
+                                                        <h4 className="font-semibold text-amber-950">بيانات التواصل مخفية</h4>
+                                                        <p className="mt-1 text-sm text-amber-900">
+                                                            سيظهر اسم المشتري ورقم الجوال بعد موافقته على العرض. ينتهي التتبع داخل المنصة عند هذه الموافقة.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             )

@@ -4,6 +4,7 @@ import { supabase, CarConfiguration, DealerInventory, Bid, BidAggregate } from '
 export const getAvailableConfigurations = async (filters: {
   make?: string
   model?: string
+  origin_locale?: string
   yearFrom?: number
   yearTo?: number
   priceFrom?: number
@@ -24,6 +25,7 @@ export const getAvailableConfigurations = async (filters: {
 
   if (filters.make) query = query.eq('make', filters.make)
   if (filters.model) query = query.eq('model', filters.model)
+  if (filters.origin_locale) query = query.eq('origin_locale', filters.origin_locale)
   if (filters.yearFrom) query = query.gte('year', filters.yearFrom)
   if (filters.yearTo) query = query.lte('year', filters.yearTo)
   if (filters.priceFrom) query = query.gte('msrp', filters.priceFrom)
@@ -104,6 +106,7 @@ export const addToInventory = async (params: {
   variant?: string
   trim?: string
   color?: string
+  origin_locale?: string
   msrp: number
   description?: string
   images?: string[]
@@ -120,6 +123,7 @@ export const addToInventory = async (params: {
     .eq('year', params.year)
     .eq('trim', params.trim || '')
     .eq('color', params.color || '') // Strict match on empty string if null
+    .eq('origin_locale', params.origin_locale || '')
     .limit(1)
 
   const existingId = existingConfigs?.[0]?.id
@@ -139,14 +143,14 @@ export const addToInventory = async (params: {
       .single()
       
     if (error?.code === '23505') { // Unique violation
-       return { status: 'exists_in_inventory', message: 'This car is already in your inventory.' }
+       return { status: 'exists_in_inventory', message: 'هذه السيارة موجودة بالفعل في مخزونك.' }
     }
     return { data, error, status: 'linked' }
   }
 
   // 2. Config does not exist
   if (!confirmNew) {
-    return { status: 'requires_confirmation', message: 'New configuration detected.' }
+    return { status: 'requires_confirmation', message: 'تم اكتشاف تكوين جديد.' }
   }
 
   // 3. Create new config and link
@@ -160,6 +164,7 @@ export const addToInventory = async (params: {
       variant: params.variant,
       trim: params.trim,
       color: params.color,
+      origin_locale: params.origin_locale,
       msrp: params.msrp,
       description: params.description,
       images: params.images || []
@@ -199,6 +204,21 @@ export const getCarMakes = async () => {
     return { data: [], error }
 }
 
+export const getCarOrigins = async () => {
+    const { data, error } = await supabase
+      .from('car_configurations')
+      .select('origin_locale')
+      .not('origin_locale', 'is', null)
+
+    if (data) {
+      const uniqueOrigins = Array.from(
+        new Set(data.map(item => item.origin_locale).filter(Boolean))
+      ).sort()
+      return { data: uniqueOrigins, error: null }
+    }
+    return { data: [], error }
+}
+
 // SHARED: Place a Bid (Offer)
 export const placeBid = async (params: {
   car_configuration_id: string
@@ -209,7 +229,7 @@ export const placeBid = async (params: {
   const net_offer = params.amount - RESERVATION_FEE
 
   if (net_offer <= 0) {
-    return { error: { message: 'Offer amount must be greater than reservation fee' } }
+    return { error: { message: 'يجب أن يكون مبلغ العرض أعلى من رسوم الالتزام' } }
   }
 
   const { data, error } = await supabase

@@ -9,7 +9,7 @@ export function getSupabaseAdmin() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Missing server Supabase configuration')
+    throw new Error('إعدادات Supabase الخاصة بالخادم غير مكتملة')
   }
 
   adminClient = createClient(supabaseUrl, serviceRoleKey, {

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { toArabicError } from './arabic-errors'
 
 export const getAdminStats = async () => {
   try {
@@ -38,6 +39,11 @@ export const getAdminStats = async () => {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending')
 
+    const { count: openSupportTickets } = await supabase
+      .from('support_tickets')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['open', 'under_review'])
+
     const feesByStatus = feeStats?.reduce((acc, fee) => {
       acc[fee.status] = (acc[fee.status] || 0) + 1
       return acc
@@ -53,12 +59,13 @@ export const getAdminStats = async () => {
         totalDeals,
         commitmentFees: feesByStatus,
         totalFeesCollected,
-        pendingDealerApplications
+        pendingDealerApplications,
+        openSupportTickets
       },
       error: null
     }
   } catch {
-    return { data: null, error: 'Failed to fetch admin stats' }
+    return { data: null, error: 'تعذر تحميل إحصاءات الإدارة' }
   }
 }
 
@@ -178,8 +185,8 @@ export const approveDealerApplication = async (applicationId: string) => {
     p_application_id: applicationId
   })
 
-  if (error) return { data: null, error: error.message }
-  if (data?.error) return { data: null, error: data.error }
+  if (error) return { data: null, error: toArabicError(error, 'تعذر اعتماد طلب التاجر') }
+  if (data?.error) return { data: null, error: toArabicError(data.error, 'تعذر اعتماد طلب التاجر') }
 
   return { data, error: null }
 }
@@ -190,8 +197,8 @@ export const rejectDealerApplication = async (applicationId: string, reason = ''
     p_rejection_reason: reason
   })
 
-  if (error) return { data: null, error: error.message }
-  if (data?.error) return { data: null, error: data.error }
+  if (error) return { data: null, error: toArabicError(error, 'تعذر رفض طلب التاجر') }
+  if (data?.error) return { data: null, error: toArabicError(data.error, 'تعذر رفض طلب التاجر') }
 
   return { data, error: null }
 }

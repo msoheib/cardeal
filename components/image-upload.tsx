@@ -66,7 +66,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
         })
 
       if (uploadError) {
-        console.error('Upload error:', uploadError)
+        console.error('خطأ في رفع الصورة:', uploadError)
         setError('حدث خطأ أثناء رفع الصورة')
         continue
       }

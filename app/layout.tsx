@@ -11,10 +11,10 @@ const tajawal = Tajawal({
 })
 
 export const metadata: Metadata = {
-  title: 'CarDeal',
+  title: 'كار ديل',
   description:
-    'Buy and sell cars with confidence using transparent data and real-time support.',
-  keywords: ['cars', 'buy cars', 'sell cars', 'car marketplace']
+    'منصة مزايدة سيارات تتيح مقارنة الأسعار وتقديم العروض بثقة عبر تجار موثّقين.',
+  keywords: ['سيارات', 'شراء سيارات', 'بيع سيارات', 'مزايدة سيارات', 'سوق سيارات']
 }
 
 export default function RootLayout({

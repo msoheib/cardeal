@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { signUp } from '@/lib/auth'
+import { toArabicError } from '@/lib/arabic-errors'
 import { getSafeRedirectPath } from '@/lib/redirect'
 import { Mail, Lock, User, ArrowRight, Loader2, Phone } from 'lucide-react'
 
@@ -55,7 +56,7 @@ function RegisterContent() {
     )
 
     if (signUpError) {
-      setError(signUpError.message)
+      setError(toArabicError(signUpError, 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.'))
     } else {
       // Redirect to the original page or dashboard
       router.push(formData.userType === 'dealer' ? '/dealer/apply?from=register' : safeRedirectUrl)
@@ -77,7 +78,7 @@ function RegisterContent() {
             العودة للرئيسية
           </Link>
           
-          <h1 className="text-2xl font-bold text-gray-900">CarDeal</h1>
+          <h1 className="text-2xl font-bold text-gray-900">كار ديل</h1>
         </div>
 
         <Card className="shadow-lg">
@@ -156,7 +157,7 @@ function RegisterContent() {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="05xxxxxxxx"
+                    placeholder="05 000 0000"
                     className="pr-10"
                     dir="ltr"
                   />

@@ -151,6 +151,7 @@ export type Database = {
           make: string
           model: string
           msrp: number
+          origin_locale: string | null
           specifications: Json | null
           trim: string | null
           updated_at: string | null
@@ -166,6 +167,7 @@ export type Database = {
           make: string
           model: string
           msrp: number
+          origin_locale?: string | null
           specifications?: Json | null
           trim?: string | null
           updated_at?: string | null
@@ -181,6 +183,7 @@ export type Database = {
           make?: string
           model?: string
           msrp?: number
+          origin_locale?: string | null
           specifications?: Json | null
           trim?: string | null
           updated_at?: string | null
@@ -202,6 +205,7 @@ export type Database = {
           make: string
           min_bid_price: number | null
           model: string
+          origin_locale: string | null
           original_quantity: number | null
           price_slots: number[] | null
           specifications: Json | null
@@ -224,6 +228,7 @@ export type Database = {
           make: string
           min_bid_price?: number | null
           model: string
+          origin_locale?: string | null
           original_quantity?: number | null
           price_slots?: number[] | null
           specifications?: Json | null
@@ -246,6 +251,7 @@ export type Database = {
           make?: string
           min_bid_price?: number | null
           model?: string
+          origin_locale?: string | null
           original_quantity?: number | null
           price_slots?: number[] | null
           specifications?: Json | null
@@ -363,6 +369,53 @@ export type Database = {
             foreignKeyName: "dealer_inventory_dealer_id_fkey"
             columns: ["dealer_id"]
             isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealer_public_profiles: {
+        Row: {
+          city: string
+          company_name: string
+          created_at: string | null
+          description: string | null
+          id: string
+          logo_url: string | null
+          rating: number | null
+          total_sales: number | null
+          updated_at: string | null
+          verified: boolean
+        }
+        Insert: {
+          city: string
+          company_name: string
+          created_at?: string | null
+          description?: string | null
+          id: string
+          logo_url?: string | null
+          rating?: number | null
+          total_sales?: number | null
+          updated_at?: string | null
+          verified?: boolean
+        }
+        Update: {
+          city?: string
+          company_name?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          rating?: number | null
+          total_sales?: number | null
+          updated_at?: string | null
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_public_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
             referencedRelation: "dealers"
             referencedColumns: ["id"]
           },
@@ -505,6 +558,89 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          admin_notes: string | null
+          buyer_id: string
+          created_at: string
+          dealer_id: string
+          deal_id: string
+          description: string
+          evidence_urls: string[]
+          id: string
+          reason: Database["public"]["Enums"]["support_ticket_reason"]
+          refund_scope: Database["public"]["Enums"]["refund_scope"]
+          requested_refund_amount: number
+          resolved_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["support_ticket_status"]
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          buyer_id: string
+          created_at?: string
+          dealer_id: string
+          deal_id: string
+          description: string
+          evidence_urls?: string[]
+          id?: string
+          reason: Database["public"]["Enums"]["support_ticket_reason"]
+          refund_scope?: Database["public"]["Enums"]["refund_scope"]
+          requested_refund_amount?: number
+          resolved_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          buyer_id?: string
+          created_at?: string
+          dealer_id?: string
+          deal_id?: string
+          description?: string
+          evidence_urls?: string[]
+          id?: string
+          reason?: Database["public"]["Enums"]["support_ticket_reason"]
+          refund_scope?: Database["public"]["Enums"]["refund_scope"]
+          requested_refund_amount?: number
+          resolved_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -547,7 +683,28 @@ export type Database = {
     }
     Functions: {
       accept_bid: {
-        Args: { p_bid_id: string; p_dealer_id: string }
+        Args: { p_bid_id: string }
+        Returns: Json
+      }
+      approve_received_offer: {
+        Args: { p_deal_id: string }
+        Returns: Json
+      }
+      create_support_ticket: {
+        Args: {
+          p_deal_id: string
+          p_description: string
+          p_evidence_urls?: string[]
+          p_reason: Database["public"]["Enums"]["support_ticket_reason"]
+        }
+        Returns: Json
+      }
+      review_support_ticket: {
+        Args: {
+          p_admin_notes?: string
+          p_status: Database["public"]["Enums"]["support_ticket_status"]
+          p_ticket_id: string
+        }
         Returns: Json
       }
       accept_bids_group: {
@@ -580,6 +737,19 @@ export type Database = {
       car_status: "active" | "sold_out" | "inactive" | "draft"
       deal_status: "pending_payment" | "completed" | "cancelled" | "refunded"
       fee_status: "pending" | "paid" | "refunded" | "applied_to_purchase"
+      refund_scope: "none" | "commitment_fee" | "full_amount"
+      support_ticket_reason:
+        | "supplier_no_response"
+        | "car_not_received"
+        | "car_damaged"
+        | "other"
+      support_ticket_status:
+        | "open"
+        | "under_review"
+        | "approved"
+        | "rejected"
+        | "resolved"
+        | "closed"
       user_type: "buyer" | "dealer" | "admin"
     }
     CompositeTypes: {
@@ -715,6 +885,21 @@ export const Constants = {
       car_status: ["active", "sold_out", "inactive", "draft"],
       deal_status: ["pending_payment", "completed", "cancelled", "refunded"],
       fee_status: ["pending", "paid", "refunded", "applied_to_purchase"],
+      refund_scope: ["none", "commitment_fee", "full_amount"],
+      support_ticket_reason: [
+        "supplier_no_response",
+        "car_not_received",
+        "car_damaged",
+        "other",
+      ],
+      support_ticket_status: [
+        "open",
+        "under_review",
+        "approved",
+        "rejected",
+        "resolved",
+        "closed",
+      ],
       user_type: ["buyer", "dealer", "admin"],
     },
   },

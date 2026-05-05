@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { BidAggregate } from '@/lib/supabase'
 import { getBidLeaderboard } from '@/lib/cars'
+import { formatCurrencySar } from '@/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Trophy, TrendingUp, Users } from 'lucide-react'
@@ -21,15 +22,6 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid, priceSlots 
   const [totalBids, setTotalBids] = useState(0)
 
   const hasSlots = priceSlots && priceSlots.length > 0
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('ar-SA', {
-      style: 'currency',
-      currency: 'SAR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(price)
-  }
 
   const loadLeaderboard = async () => {
     const { data, error } = await getBidLeaderboard(carId)
@@ -193,10 +185,10 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid, priceSlots 
                     </div>
                     <div>
                       <div className="font-semibold text-lg">
-                        {formatPrice(bid.bid_price)}
+                        {formatCurrencySar(bid.bid_price)}
                       </div>
                       <div className="text-sm opacity-75">
-                        وفر {formatPrice(savings)}
+                        وفر {formatCurrencySar(savings)}
                       </div>
                     </div>
                   </div>
@@ -231,7 +223,7 @@ export function BidLeaderboard({ carId, wakalaPrice, currentUserBid, priceSlots 
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-between text-blue-700">
               <span className="text-sm font-medium">مزايدتك الحالية</span>
-              <span className="font-semibold">{formatPrice(currentUserBid)}</span>
+              <span className="font-semibold">{formatCurrencySar(currentUserBid)}</span>
             </div>
             <p className="text-xs text-blue-600 mt-1">
               مزايدتك خارج قائمة الأعلى 5 مزايدات
