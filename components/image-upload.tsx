@@ -2,9 +2,8 @@
 
 import { useState, useRef } from 'react'
 import Image from 'next/image'
-import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { Upload, X, Loader2, ImagePlus } from 'lucide-react'
+import { X, Loader2, ImagePlus } from 'lucide-react'
 
 interface ImageUploadProps {
   images: string[]
@@ -29,6 +28,15 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
     setIsUploading(true)
     setError('')
 
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    const userId = userData.user?.id
+
+    if (userError || !userId) {
+      setError('يجب تسجيل الدخول قبل رفع الصور')
+      setIsUploading(false)
+      return
+    }
+
     const newImageUrls: string[] = []
 
     for (const file of Array.from(files)) {
@@ -46,11 +54,11 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
 
       // Generate unique filename
       const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-      const filePath = `cars/${fileName}`
+      const fileName = `${crypto.randomUUID()}.${fileExt}`
+      const filePath = `cars/${userId}/${fileName}`
 
       // Upload to Supabase Storage
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('car-images')
         .upload(filePath, file, {
           cacheControl: '3600',

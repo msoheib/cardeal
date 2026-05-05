@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -10,9 +10,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { signUp } from '@/lib/auth'
+import { getSafeRedirectPath } from '@/lib/redirect'
 import { Mail, Lock, User, ArrowRight, Loader2, Phone } from 'lucide-react'
 
-export default function RegisterPage() {
+function RegisterContent() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -26,6 +27,7 @@ export default function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams?.get('redirect')
+  const safeRedirectUrl = getSafeRedirectPath(redirectUrl)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,18 +47,18 @@ export default function RegisterPage() {
       return
     }
 
-    const { data, error: signUpError } = await signUp(
+    const { error: signUpError } = await signUp(
       formData.email,
       formData.password,
       formData.fullName,
-      formData.userType
+      formData.phone || undefined
     )
 
     if (signUpError) {
       setError(signUpError.message)
     } else {
       // Redirect to the original page or dashboard
-      router.push(redirectUrl || '/dashboard')
+      router.push(formData.userType === 'dealer' ? '/dealer/apply?from=register' : safeRedirectUrl)
     }
 
     setIsLoading(false)
@@ -232,5 +234,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterContent />
+    </Suspense>
   )
 }

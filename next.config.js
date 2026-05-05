@@ -1,8 +1,8 @@
 ﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@supabase/supabase-js'],
-  eslint: {
-    ignoreDuringBuilds: true,
+  turbopack: {
+    root: __dirname,
   },
   images: { unoptimized: true },
 };

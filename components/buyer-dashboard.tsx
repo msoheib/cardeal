@@ -12,6 +12,7 @@ import { supabase, User, Deal, Bid } from '@/lib/supabase'
 import { signOut } from '@/lib/auth'
 import {
   Car,
+  Building2,
   TrendingUp,
   Clock,
   CheckCircle,
@@ -118,6 +119,12 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
             <p className="text-sm text-gray-600">تابع مزايداتك وصفقاتك من هنا.</p>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/dealer/apply">
+              <Button variant="outline" size="sm">
+                <Building2 className="w-4 h-4 mr-2" />
+                طلب حساب تاجر
+              </Button>
+            </Link>
             <Link href="/cars">
               <Button variant="outline" size="sm">
                 <Car className="w-4 h-4 mr-2" />

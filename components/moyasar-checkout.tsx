@@ -79,13 +79,18 @@ export default function MoyasarCheckout({ amountHalalas, description, bidId, car
       const origin = window.location.origin
       const callback = `${origin}/api/moyasar/verify?bid_id=${encodeURIComponent(
         bidId
-      )}&car_id=${encodeURIComponent(carId)}&amount=${amountHalalas}&fee=full`
+      )}&car_id=${encodeURIComponent(carId)}`
 
       window.Moyasar.init({
         element: `.${formClass}`,
         amount: amountHalalas,
         currency: 'SAR',
         description,
+        metadata: {
+          bid_id: bidId,
+          car_configuration_id: carId,
+          fee: 'commitment_fee'
+        },
         publishable_api_key: publishableKey,
         callback_url: callback,
         supported_networks: ['visa', 'mastercard', 'mada'],

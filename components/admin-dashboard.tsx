@@ -6,8 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { getAdminStats, getAllBids, getAllDeals, getPendingCars, approveCar, rejectCar, generateSalesReport } from '@/lib/admin'
+import {
+  getAdminStats,
+  getAllBids,
+  getAllDeals,
+  getPendingCars,
+  approveCar,
+  rejectCar,
+  generateSalesReport,
+  getDealerApplications,
+  approveDealerApplication,
+  rejectDealerApplication
+} from '@/lib/admin'
 import { signOut } from '@/lib/auth'
 import { User } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
@@ -19,7 +29,6 @@ import {
   LogOut,
   CheckCircle,
   XCircle,
-  BarChart3,
   FileText,
   Shield
 } from 'lucide-react'
@@ -33,6 +42,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   const [bids, setBids] = useState<any[]>([])
   const [deals, setDeals] = useState<any[]>([])
   const [pendingCars, setPendingCars] = useState<any[]>([])
+  const [dealerApplications, setDealerApplications] = useState<any[]>([])
   const [salesReport, setSalesReport] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
@@ -71,6 +81,11 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     const { data: pendingCarsData } = await getPendingCars()
     if (pendingCarsData) {
       setPendingCars(pendingCarsData)
+    }
+
+    const { data: dealerApplicationsData } = await getDealerApplications()
+    if (dealerApplicationsData) {
+      setDealerApplications(dealerApplicationsData)
     }
 
     setIsLoading(false)
@@ -127,6 +142,42 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     }
   }
 
+  const handleApproveDealerApplication = async (applicationId: string) => {
+    const result = await approveDealerApplication(applicationId)
+    if (result.error) {
+      toast({
+        title: "خطأ",
+        description: typeof result.error === 'string' ? result.error : "فشل اعتماد التاجر",
+        variant: "destructive"
+      })
+    } else {
+      toast({
+        title: "تم الاعتماد",
+        description: "تم اعتماد حساب التاجر بنجاح",
+        variant: "default"
+      })
+      loadAdminData()
+    }
+  }
+
+  const handleRejectDealerApplication = async (applicationId: string) => {
+    const result = await rejectDealerApplication(applicationId)
+    if (result.error) {
+      toast({
+        title: "خطأ",
+        description: typeof result.error === 'string' ? result.error : "فشل رفض الطلب",
+        variant: "destructive"
+      })
+    } else {
+      toast({
+        title: "تم الرفض",
+        description: "تم رفض طلب التاجر",
+        variant: "default"
+      })
+      loadAdminData()
+    }
+  }
+
   useEffect(() => {
     loadAdminData()
   }, [])
@@ -142,6 +193,8 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">قيد الانتظار</Badge>
       case 'accepted':
         return <Badge className="bg-primary/10 text-primary">مقبولة</Badge>
+      case 'approved':
+        return <Badge className="bg-primary/10 text-primary">معتمد</Badge>
       case 'rejected':
         return <Badge variant="destructive">مرفوضة</Badge>
       case 'completed':
@@ -257,9 +310,10 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
         {/* Main Content */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
             <TabsTrigger value="cars">السيارات المعلقة</TabsTrigger>
+            <TabsTrigger value="dealers">طلبات التجار</TabsTrigger>
             <TabsTrigger value="bids">المزايدات</TabsTrigger>
             <TabsTrigger value="deals">الصفقات</TabsTrigger>
           </TabsList>
@@ -310,6 +364,14 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                       <div className="flex justify-between">
                         <span>سيارات تحتاج موافقة:</span>
                         <span className="font-semibold text-orange-600">{pendingCars.length}</span>
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      <div className="flex justify-between">
+                        <span>طلبات تجار قيد المراجعة:</span>
+                        <span className="font-semibold text-orange-600">
+                          {stats?.pendingDealerApplications || 0}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -434,6 +496,107 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             )}
           </TabsContent>
 
+          <TabsContent value="dealers" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">طلبات اعتماد التجار</h2>
+              <Badge variant="secondary">{dealerApplications.length} طلب</Badge>
+            </div>
+
+            {dealerApplications.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <CheckCircle className="w-12 h-12 text-primary mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    لا توجد طلبات تجار
+                  </h3>
+                  <p className="text-gray-600">
+                    ستظهر طلبات التجار الجديدة هنا قبل منحهم صلاحيات البيع.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {dealerApplications.map((application) => {
+                  const applicant = application.user as any
+
+                  return (
+                    <Card key={application.id}>
+                      <CardContent className="p-6">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="flex-1 space-y-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <h3 className="text-lg font-semibold">
+                                {application.company_name}
+                              </h3>
+                              {getStatusBadge(application.status)}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">المتقدم:</span>
+                                <div className="font-semibold">{applicant?.full_name || '-'}</div>
+                                <div className="text-xs text-gray-500">{applicant?.email}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">السجل التجاري:</span>
+                                <div className="font-semibold">{application.commercial_registration}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">المدينة:</span>
+                                <div className="font-semibold">{application.city}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">الجوال:</span>
+                                <div className="font-semibold">
+                                  {application.contact_info?.phone || applicant?.phone || '-'}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">تاريخ الطلب:</span>
+                                <div className="font-semibold">
+                                  {new Date(application.created_at).toLocaleDateString('ar-SA')}
+                                </div>
+                              </div>
+                              {application.rejection_reason && (
+                                <div>
+                                  <span className="text-gray-600">سبب الرفض:</span>
+                                  <div className="font-semibold text-red-600">
+                                    {application.rejection_reason}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {application.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveDealerApplication(application.id)}
+                                className="bg-primary hover:bg-primary/90"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                اعتماد
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleRejectDealerApplication(application.id)}
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                رفض
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="bids" className="space-y-4">
             <h2 className="text-xl font-semibold">جميع المزايدات</h2>
 
@@ -451,12 +614,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   </TableHeader>
                   <TableBody>
                     {bids.slice(0, 20).map((bid) => {
-                      const car = bid.car as any
+                      const configuration = bid.configuration as any
                       const buyer = bid.buyer as any
                       return (
                         <TableRow key={bid.id}>
                           <TableCell>
-                            {car?.make} {car?.model} {car?.year}
+                            {configuration?.make} {configuration?.model} {configuration?.year}
                           </TableCell>
                           <TableCell>{buyer?.full_name}</TableCell>
                           <TableCell className="font-semibold">
@@ -493,13 +656,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                   </TableHeader>
                   <TableBody>
                     {deals.slice(0, 20).map((deal) => {
-                      const car = deal.car as any
+                      const configuration = deal.configuration as any
                       const dealer = deal.dealer as any
                       const buyer = deal.buyer as any
                       return (
                         <TableRow key={deal.id}>
                           <TableCell>
-                            {car?.make} {car?.model} {car?.year}
+                            {configuration?.make} {configuration?.model} {configuration?.year}
                           </TableCell>
                           <TableCell>{dealer?.company_name}</TableCell>
                           <TableCell>{buyer?.full_name}</TableCell>

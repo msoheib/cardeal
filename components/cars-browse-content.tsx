@@ -71,7 +71,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
           return
         }
 
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('bids')
           .select('car_configuration_id, status')
           .eq('buyer_id', user.id)
@@ -91,7 +91,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
   useEffect(() => {
     const handle = setTimeout(loadCars, 400)
     return () => clearTimeout(handle)
-    // eslint-disable-next-line react-hooks-exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters])
 
   const { appliedConfigs, remainingConfigs } = useMemo(() => {
@@ -266,5 +266,3 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
     </div>
   )
 }
-
-

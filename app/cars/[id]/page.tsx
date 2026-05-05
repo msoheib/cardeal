@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -16,15 +16,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { 
   ArrowRight, 
   Calendar, 
-  MapPin, 
   Gauge, 
   Fuel, 
   Settings,
-  Shield,
-  Clock,
   Users,
   Building2,
-  CheckCircle2,
   TrendingUp
 } from 'lucide-react'
 
@@ -40,7 +36,7 @@ interface InventoryItem {
   }
 }
 
-export default function CarDetailPage() {
+function CarDetailContent() {
   const params = useParams()
   const configId = params.id as string
   const router = useRouter()
@@ -428,4 +424,10 @@ export default function CarDetailPage() {
   )
 }
 
-
+export default function CarDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <CarDetailContent />
+    </Suspense>
+  )
+}

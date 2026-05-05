@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { signIn } from '@/lib/auth'
+import { getSafeRedirectPath } from '@/lib/redirect'
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -19,19 +20,20 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams?.get('redirect')
+  const safeRedirectUrl = getSafeRedirectPath(redirectUrl)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
-    const { data, error: signInError } = await signIn(email, password)
+    const { error: signInError } = await signIn(email, password)
 
     if (signInError) {
       setError(signInError.message)
     } else {
       // Redirect to the original page or dashboard
-      router.push(redirectUrl || '/dashboard')
+      router.push(safeRedirectUrl)
     }
 
     setIsLoading(false)
@@ -141,5 +143,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   )
 }

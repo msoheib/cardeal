@@ -34,6 +34,13 @@ export function BidInput({
   priceSlots = []
 }: BidInputProps) {
   const pathname = usePathname()
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
+  const [customAmount, setCustomAmount] = useState<string>(msrp.toString())
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const { toast } = useToast()
+  const [showPayModal, setShowPayModal] = useState(false)
+  const [createdBidId, setCreatedBidId] = useState<string>('')
   
   // Format price helper (defined early for guest view)
   const formatPrice = (price: number) => {
@@ -81,18 +88,8 @@ export function BidInput({
     )
   }
 
-  // Authenticated user: show full bid form
-  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
-  const [customAmount, setCustomAmount] = useState<string>(msrp.toString())
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const { toast } = useToast()
-  const [showPayModal, setShowPayModal] = useState(false)
-  const [createdBidId, setCreatedBidId] = useState<string>('')
-  
   // Fee Calculation
   const RESERVATION_FEE_SAR = 500
-  const VAT_RATE = 0
   const TOTAL_FEE_SAR = RESERVATION_FEE_SAR // 500
   const TOTAL_FEE_HALALAS = TOTAL_FEE_SAR * 100 // 50000
 
@@ -143,8 +140,9 @@ export function BidInput({
       } else {
         setCreatedBidId(data.id)
         setShowPayModal(true)
+        onBidPlaced?.(bidValue)
       }
-    } catch (err) {
+    } catch {
       setError('حدث خطأ غير متوقع')
     } finally {
       setIsSubmitting(false)
@@ -299,5 +297,3 @@ export function BidInput({
     </Card>
   )
 }
-
-

@@ -33,6 +33,11 @@ export const getAdminStats = async () => {
       .from('commitment_fees')
       .select('status, amount')
 
+    const { count: pendingDealerApplications } = await supabase
+      .from('dealer_applications')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending')
+
     const feesByStatus = feeStats?.reduce((acc, fee) => {
       acc[fee.status] = (acc[fee.status] || 0) + 1
       return acc
@@ -47,11 +52,12 @@ export const getAdminStats = async () => {
         activeBids,
         totalDeals,
         commitmentFees: feesByStatus,
-        totalFeesCollected
+        totalFeesCollected,
+        pendingDealerApplications
       },
       error: null
     }
-  } catch (error) {
+  } catch {
     return { data: null, error: 'Failed to fetch admin stats' }
   }
 }
@@ -61,7 +67,7 @@ export const getAllBids = async () => {
     .from('bids')
     .select(`
       *,
-      car:cars(make, model, year, wakala_price),
+      configuration:car_configurations(make, model, year, msrp),
       buyer:users(full_name, email)
     `)
     .order('created_at', { ascending: false })
@@ -74,7 +80,7 @@ export const getAllDeals = async () => {
     .from('deals')
     .select(`
       *,
-      car:cars(make, model, year),
+      configuration:car_configurations(make, model, year),
       dealer:dealers(company_name),
       buyer:users(full_name, email)
     `)
@@ -123,7 +129,7 @@ export const generateSalesReport = async (startDate: string, endDate: string) =>
     .from('deals')
     .select(`
       *,
-      car:cars(make, model, wakala_price),
+      configuration:car_configurations(make, model, msrp),
       dealer:dealers(company_name)
     `)
     .eq('status', 'completed')
@@ -134,8 +140,8 @@ export const generateSalesReport = async (startDate: string, endDate: string) =>
   if (data) {
     const totalRevenue = data.reduce((sum, deal) => sum + deal.final_price, 0)
     const totalSavings = data.reduce((sum, deal) => {
-      const car = deal.car as any
-      return sum + (car.wakala_price - deal.final_price)
+      const configuration = deal.configuration as any
+      return sum + ((configuration?.msrp || 0) - deal.final_price)
     }, 0)
 
     return {
@@ -153,4 +159,39 @@ export const generateSalesReport = async (startDate: string, endDate: string) =>
   }
 
   return { data: null, error }
+}
+
+export const getDealerApplications = async () => {
+  const { data, error } = await supabase
+    .from('dealer_applications')
+    .select(`
+      *,
+      user:users(full_name, email, phone)
+    `)
+    .order('created_at', { ascending: false })
+
+  return { data, error }
+}
+
+export const approveDealerApplication = async (applicationId: string) => {
+  const { data, error } = await supabase.rpc('approve_dealer_application', {
+    p_application_id: applicationId
+  })
+
+  if (error) return { data: null, error: error.message }
+  if (data?.error) return { data: null, error: data.error }
+
+  return { data, error: null }
+}
+
+export const rejectDealerApplication = async (applicationId: string, reason = '') => {
+  const { data, error } = await supabase.rpc('reject_dealer_application', {
+    p_application_id: applicationId,
+    p_rejection_reason: reason
+  })
+
+  if (error) return { data: null, error: error.message }
+  if (data?.error) return { data: null, error: data.error }
+
+  return { data, error: null }
 }

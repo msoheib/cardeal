@@ -6,9 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { getDealerInventory, getDealerOpportunities } from '@/lib/cars'
 import { acceptBid, getDealsByDealer } from '@/lib/deals' // Use singular acceptBid
 import { signOut } from '@/lib/auth'
@@ -18,10 +15,6 @@ import {
   Car as CarIcon,
   TrendingUp,
   LogOut,
-  Eye,
-  Settings,
-  CheckCircle,
-  BarChart3,
   PlusCircle,
   AlertCircle,
   Clock,
@@ -46,7 +39,6 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [opportunities, setOpportunities] = useState<any[]>([]) // Pending bids
   const [deals, setDeals] = useState<Deal[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
 
@@ -60,8 +52,6 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
   }
 
   const loadDashboardData = async () => {
-    setIsLoading(true)
-    
     // Get dealer info first
     const { data: dealerData } = await supabase
       .from('dealers')
@@ -70,7 +60,6 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
       .single()
 
     if (!dealerData) {
-      setIsLoading(false)
       return
     }
 
@@ -88,7 +77,6 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     const { data: dealsData } = await getDealsByDealer(dealerId)
     if (dealsData) setDeals(dealsData)
 
-    setIsLoading(false)
   }
 
   useEffect(() => {
@@ -97,11 +85,8 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
   }, [user.id])
 
   const handleAcceptBid = async (bidId: string, amount: number) => {
-    const { data: dealerData } = await supabase.from('dealers').select('id').eq('user_id', user.id).single()
-    if (!dealerData) return
-
     setIsProcessing(true)
-    const result = await acceptBid(bidId, dealerData.id)
+    const result = await acceptBid(bidId)
     setIsProcessing(false)
 
     if (result.error) {
@@ -357,4 +342,3 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     </div>
   )
 }
-
