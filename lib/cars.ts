@@ -207,12 +207,19 @@ export const getCarMakes = async () => {
 export const getCarOrigins = async () => {
     const { data, error } = await supabase
       .from('car_configurations')
-      .select('origin_locale')
-      .not('origin_locale', 'is', null)
+      .select('*')
+
+    if (error && (
+      error.code === '42703' ||
+      error.code === 'PGRST204' ||
+      /origin_locale|column/i.test(error.message)
+    )) {
+      return { data: [], error: null }
+    }
 
     if (data) {
       const uniqueOrigins = Array.from(
-        new Set(data.map(item => item.origin_locale).filter(Boolean))
+        new Set(data.map(item => (item as any).origin_locale).filter(Boolean))
       ).sort()
       return { data: uniqueOrigins, error: null }
     }

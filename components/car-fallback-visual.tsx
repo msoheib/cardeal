@@ -153,7 +153,7 @@ export function CarFallbackVisual({
   return (
     <div
       className={cn(
-        'relative flex h-full min-h-[15rem] w-full overflow-hidden bg-[#102528] text-white',
+        'relative flex h-full min-h-[15rem] w-full overflow-hidden bg-muted text-foreground',
         isDetail ? 'items-end rounded-none p-6 md:p-8' : 'items-end p-5',
         className
       )}
@@ -168,11 +168,10 @@ export function CarFallbackVisual({
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'radial-gradient(circle at 28% 16%, var(--paint-glow), transparent 34%), radial-gradient(circle at 86% 20%, rgba(245,158,11,0.24), transparent 30%), linear-gradient(135deg, #102528 0%, #17373b 48%, #0b1719 100%)'
+          background: 'linear-gradient(180deg, #f6f8f8 0%, #e9eeee 100%)'
         }}
       />
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/42 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-white/25" />
 
       <svg
         viewBox="0 0 900 520"
@@ -216,20 +215,20 @@ export function CarFallbackVisual({
           )}
         >
           {showBadge && (
-            <Badge className="mb-3 rounded-full border-white/20 bg-white/14 px-3 py-1 text-white backdrop-blur hover:bg-white/14">
+            <Badge className="mb-3 rounded-full border-border bg-card px-3 py-1 text-foreground hover:bg-card">
               صورة تجريبية حسب المواصفات
             </Badge>
           )}
-          <h3 className={cn('font-black leading-tight text-white drop-shadow-sm', isDetail ? 'text-3xl md:text-5xl' : 'text-2xl')}>
+          <h3 className={cn('font-black leading-tight text-foreground', isDetail ? 'text-3xl md:text-5xl' : 'text-2xl')}>
             {title}
           </h3>
-          <p className={cn('mt-2 font-medium text-white/72', isDetail ? 'text-base' : 'text-sm')}>
+          <p className={cn('mt-2 font-medium text-muted-foreground', isDetail ? 'text-base' : 'text-sm')}>
             {trim} · {color} · {origin}
           </p>
         </div>
       ) : showBadge ? (
         <div className={cn('absolute z-10', isDetail ? 'right-6 top-6 md:right-8 md:top-8' : 'bottom-5 right-5')}>
-          <Badge className="rounded-full border-white/20 bg-white/14 px-3 py-1 text-white backdrop-blur hover:bg-white/14">
+          <Badge className="rounded-full border-border bg-card px-3 py-1 text-foreground hover:bg-card">
             صورة تجريبية
           </Badge>
         </div>
@@ -237,7 +236,7 @@ export function CarFallbackVisual({
 
         <span
           className={cn(
-            'absolute z-10 hidden h-12 w-12 shrink-0 rounded-2xl border border-white/30 shadow-lg sm:block',
+            'absolute z-10 hidden h-12 w-12 shrink-0 rounded-2xl border border-border shadow-sm sm:block',
             isDetail ? 'bottom-6 left-6 md:bottom-8 md:left-8' : 'bottom-5 left-5'
           )}
           style={{ background: `linear-gradient(135deg, ${paint.light}, ${paint.base} 52%, ${paint.dark})` }}

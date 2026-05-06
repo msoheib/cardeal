@@ -12,3 +12,15 @@
  GET /cars 200 in 823ms (next.js: 709ms, application-code: 114ms)
  GET /cars 200 in 75ms (next.js: 6ms, application-code: 69ms)
  GET /cars 200 in 66ms (next.js: 4ms, application-code: 63ms)
+✓ Compiled in 318ms
+✓ Compiled in 0ms
+✓ Compiled in 149ms
+ GET /cars 200 in 444ms (next.js: 181ms, application-code: 262ms)
+✓ Compiled in 32ms
+ GET /cars 200 in 149ms (next.js: 95ms, application-code: 53ms)
+ GET /cars 200 in 165ms (next.js: 3ms, application-code: 162ms)
+ GET /cars 200 in 71ms (next.js: 4ms, application-code: 67ms)
+✓ Compiled in 31ms
+ GET /cars 200 in 191ms (next.js: 89ms, application-code: 102ms)
+ GET /cars 200 in 57ms (next.js: 5ms, application-code: 52ms)
+ GET /cars 200 in 188ms (next.js: 4ms, application-code: 184ms)
