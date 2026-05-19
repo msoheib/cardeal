@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Car, LayoutDashboard, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowLeft, Building2, Car, LayoutDashboard, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -134,9 +134,9 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
   return (
     <div className={cn('bg-background text-foreground', showDashboardLink ? 'min-h-screen' : 'rounded-2xl py-2')}>
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="container mx-auto flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="container mx-auto flex flex-col gap-4 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-primary">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm">
               <Car className="h-5 w-5" />
             </span>
             <div>
@@ -145,9 +145,21 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
             </div>
           </Link>
 
+          <nav className="hidden items-center gap-1 rounded-full border border-border bg-card p-1 text-sm shadow-sm md:flex">
+            <Link href="/cars" className="rounded-full bg-primary px-4 py-2 font-semibold text-primary-foreground">
+              السوق
+            </Link>
+            <Link href="/dashboard" className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">
+              مزايداتي
+            </Link>
+            <Link href="/dealer/apply" className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">
+              الموردون
+            </Link>
+          </nav>
+
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="rounded-full px-3 py-1.5 text-muted-foreground">تجار موثّقون</Badge>
-            <Badge variant="outline" className="rounded-full px-3 py-1.5 text-muted-foreground">رسوم 500 ر.س</Badge>
+            <Badge variant="outline" className="rounded-full border-border px-3 py-1.5 text-muted-foreground">تجار موثّقون</Badge>
+            <Badge variant="outline" className="rounded-full border-border px-3 py-1.5 text-muted-foreground">رسوم 500 ر.س</Badge>
             {showDashboardLink && (
               <Button asChild variant="outline" className="rounded-xl bg-card">
                 <Link href="/dashboard">
@@ -160,43 +172,13 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
         </div>
       </header>
 
-      <section className="container mx-auto px-4 pt-8">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h2 className="max-w-3xl text-2xl font-bold leading-tight text-foreground sm:text-3xl">
-                قارن السيارات، راقب السعر، وابدأ العرض من شاشة واحدة.
-              </h2>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
-                الصفحة تعرض السيارات التي يمكن تقديم عروض عليها الآن، مع فصل السيارات التي سبق وقدّمت عليها حتى لا تضيع بين النتائج.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <div>
-                <div className="text-2xl font-bold text-foreground">{formattedRemainingCount}</div>
-                <div className="mt-1 text-muted-foreground">متاحة</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">{formatNumber(appliedConfigs.length)}</div>
-                <div className="mt-1 text-muted-foreground">ضمن عروضك</div>
-              </div>
-              <Button type="button" variant="outline" onClick={loadCars} className="rounded-xl bg-background">
-                <RefreshCw className="ml-2 h-4 w-4" />
-                تحديث
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="container mx-auto flex flex-col items-start gap-6 px-4 py-8 lg:flex-row">
-        <aside className="w-full shrink-0 lg:sticky lg:top-28 lg:w-[330px]">
+      <div className="container mx-auto flex flex-col items-start gap-6 px-4 py-6 lg:flex-row">
+        <aside className="w-full shrink-0 lg:sticky lg:top-28 lg:w-[320px]">
           <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-sm">
-            <CardHeader className="border-b border-border bg-card">
+            <CardHeader className="border-b border-border bg-card px-5 py-4">
               <CardTitle className="flex items-center justify-between text-base text-foreground">
                 <span className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-5 w-5 text-primary" />
+                  <SlidersHorizontal className="h-4 w-4 text-primary" />
                   فلترة السوق
                 </span>
                 {hasFilters && (
@@ -208,14 +190,17 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5 p-5">
-              <div className="relative">
-                <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="ابحث بالماركة أو الموديل"
-                  value={filters.search}
-                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                  className="h-11 rounded-xl bg-background pr-11"
-                />
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">بحث سريع</label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="ابحث بالماركة أو الموديل"
+                    value={filters.search}
+                    onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                    className="h-11 rounded-xl bg-background pr-11"
+                  />
+                </div>
               </div>
 
               <FilterSelect
@@ -257,20 +242,23 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
                 onValueChange={(origin_locale) => setFilters((current) => ({ ...current, origin_locale }))}
               />
 
-              {hasFilters && (
-                <div className="flex flex-wrap gap-2">
-                  {activeFilters.map((item) => (
-                    <Badge key={item} variant="secondary" className="rounded-full px-3 py-1">{item}</Badge>
-                  ))}
+              <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  موردون موثّقون فقط
                 </div>
-              )}
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  معلومات التواصل تظهر بعد قبول العرض فقط.
+                </p>
+              </div>
+
             </CardContent>
           </Card>
         </aside>
 
         <main className="w-full flex-1 space-y-6">
           {appliedConfigs.length > 0 && (
-            <section className="space-y-4 rounded-2xl border border-primary/25 bg-card p-5">
+            <section className="space-y-4 rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">سياراتك الحالية</h2>
@@ -284,17 +272,35 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
             </section>
           )}
 
-          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
-                {isLoading ? 'جاري تجهيز السيارات...' : `${formattedRemainingCount} سيارة متاحة`}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">سعر الوكالة، الفئة، اللون، المنشأ، وحالة التقديم.</p>
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">
+                  {isLoading ? 'جاري تجهيز السيارات...' : `${formattedRemainingCount} سيارة متاحة`}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  نتائج مطابقة للفلاتر الحالية. الأسعار والرسوم ظاهرة قبل تقديم العرض.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full px-3 py-1.5">
+                  {formatNumber(appliedConfigs.length)} ضمن عروضك
+                </Badge>
+                <Button type="button" variant="outline" onClick={loadCars} className="rounded-xl bg-card">
+                  <RefreshCw className="ml-2 h-4 w-4" />
+                  تحديث النتائج
+                </Button>
+              </div>
             </div>
-            <Button type="button" variant="outline" onClick={loadCars} className="w-full rounded-xl bg-card sm:w-auto">
-              <RefreshCw className="ml-2 h-4 w-4" />
-              تحديث النتائج
-            </Button>
+            {hasFilters && (
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                {activeFilters.map((item) => (
+                  <Badge key={item} variant="outline" className="rounded-full border-border px-3 py-1 text-muted-foreground">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -359,7 +365,7 @@ function FilterSelect({
 
 function CarGrid({ configs, applied = false }: { configs: CarConfiguration[]; applied?: boolean }) {
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
       {configs.map((config) => (
         <CarCard key={config.id} config={config} showBidStats isApplied={applied} />
       ))}
@@ -369,14 +375,22 @@ function CarGrid({ configs, applied = false }: { configs: CarConfiguration[]; ap
 
 function LoadingCards() {
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
       {Array.from({ length: 6 }, (_, index) => (
         <Card key={index} className="overflow-hidden rounded-2xl border-border bg-card">
-          <div className="h-52 animate-pulse bg-muted" />
+          <div className="h-48 animate-pulse bg-muted" />
           <CardContent className="space-y-4 p-5">
-            <div className="h-5 w-3/4 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
-            <div className="h-20 animate-pulse rounded-xl bg-muted" />
+            <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="h-14 animate-pulse rounded-xl bg-muted" />
+              <div className="h-14 animate-pulse rounded-xl bg-muted" />
+              <div className="h-14 animate-pulse rounded-xl bg-muted" />
+              <div className="h-14 animate-pulse rounded-xl bg-muted" />
+            </div>
+            <div className="space-y-4">
+              <div className="h-8 animate-pulse rounded bg-muted" />
+              <div className="h-11 animate-pulse rounded-xl bg-muted" />
+            </div>
           </CardContent>
         </Card>
       ))}

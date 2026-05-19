@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { BidInput } from '@/components/bid-input'
-import { CarFallbackVisual } from '@/components/car-fallback-visual'
+import { CarMediaPlaceholder } from '@/components/car-media-placeholder'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { supabase, CarConfiguration, Bid, Deal } from '@/lib/supabase'
 import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
@@ -253,7 +253,7 @@ function CarDetailContent() {
                       className="object-cover"
                     />
                   ) : (
-                    <CarFallbackVisual config={config} variant="detail" showCaption />
+                    <CarMediaPlaceholder config={config} variant="detail" />
                   )}
                </div>
                {hasUploadedImages && images.length > 1 && (
