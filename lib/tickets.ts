@@ -64,7 +64,7 @@ export const getAllSupportTickets = async () => {
         configuration:car_configurations(make, model, year, trim, color, origin_locale)
       ),
       dealer:dealers(company_name),
-      buyer:users(full_name, email, phone)
+      buyer:users!support_tickets_buyer_id_fkey(full_name, email, phone)
     `)
     .order('created_at', { ascending: false })
 

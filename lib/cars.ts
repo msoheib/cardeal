@@ -1,4 +1,11 @@
-import { supabase, CarConfiguration, DealerInventory, Bid, BidAggregate } from './supabase'
+import { supabase, VehicleMake, VehicleModel } from './supabase'
+import { vehicleSearchTerms } from './arabic-display'
+
+const searchableConfigFields = ['make', 'model', 'trim', 'color', 'origin_locale']
+
+function sanitizeSearchTerm(term: string) {
+  return term.replace(/[\\%,()]/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 // BUYER: Get generic configurations that are available (have inventory)
 export const getAvailableConfigurations = async (filters: {
@@ -32,7 +39,18 @@ export const getAvailableConfigurations = async (filters: {
   if (filters.priceTo) query = query.lte('msrp', filters.priceTo)
   
   if (filters.search) {
-     query = query.or(`make.ilike.%${filters.search}%,model.ilike.%${filters.search}%`)
+    const terms = vehicleSearchTerms(filters.search)
+      .map(sanitizeSearchTerm)
+      .filter(Boolean)
+      .slice(0, 12)
+
+    if (terms.length > 0) {
+      query = query.or(
+        terms
+          .flatMap(term => searchableConfigFields.map(field => `${field}.ilike.%${term}%`))
+          .join(',')
+      )
+    }
   }
 
   const { data, error } = await query.order('created_at', { ascending: false })
@@ -226,6 +244,30 @@ export const getCarOrigins = async () => {
     return { data: [], error }
 }
 
+export const getVehicleMakes = async () => {
+  const { data, error } = await supabase
+    .from('vehicle_makes')
+    .select('id, slug, name_ar, name_en, origin_country, classification, notes, source_sheets, active, created_at, updated_at')
+    .eq('active', true)
+    .order('name_ar', { ascending: true })
+
+  return { data: (data || []) as VehicleMake[], error }
+}
+
+export const getVehicleModels = async (makeId: string) => {
+  if (!makeId) return { data: [] as VehicleModel[], error: null }
+
+  const { data, error } = await supabase
+    .from('vehicle_models')
+    .select('id, make_id, slug, name_ar, name_en, source_sheets, active, created_at, updated_at')
+    .eq('make_id', makeId)
+    .eq('active', true)
+    .order('name_ar', { ascending: true, nullsFirst: false })
+    .order('name_en', { ascending: true })
+
+  return { data: (data || []) as VehicleModel[], error }
+}
+
 // SHARED: Place a Bid (Offer)
 export const placeBid = async (params: {
   car_configuration_id: string
@@ -256,7 +298,8 @@ export const placeBid = async (params: {
   return { data, error }
 }
 
-export const updateBidAggregates = async (configId: string) => {
+export const updateBidAggregates = async (_configId: string) => {
+  void _configId
   return { success: true }
 }
 

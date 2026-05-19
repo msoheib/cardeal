@@ -1,0 +1,53 @@
+{
+  "runId": "20260506",
+  "prefix": "E2E-20260506",
+  "seededAt": "2026-05-06T14:15:00.289Z",
+  "accounts": {
+    "buyer": {
+      "email": "e2e-buyer-20260506@cardeal.test",
+      "userId": "6a275de6-013c-4179-b0e4-595456ad0251",
+      "userType": "buyer"
+    },
+    "dealer": {
+      "email": "e2e-dealer-20260506@cardeal.test",
+      "userId": "4cc3dc31-5fa7-4b53-89c5-c21330a2d8c6",
+      "userType": "dealer"
+    },
+    "admin": {
+      "email": "e2e-admin-20260506@cardeal.test",
+      "userId": "93bbd770-2002-48b2-a5a6-a4d224b9b409",
+      "userType": "admin"
+    }
+  },
+  "dealer": {
+    "id": "7a0d7664-67cb-416e-838f-2878ac25edee",
+    "companyName": "E2E-20260506 مورد سيارات الرياض"
+  },
+  "configuration": {
+    "id": "3465b16a-4f6b-411d-bf84-b2c27d6de469",
+    "make": "Toyota",
+    "model": "Camry",
+    "year": 2025,
+    "trim": "GLE",
+    "color": "White",
+    "origin_locale": "Saudi",
+    "msrp": 120000
+  },
+  "inventory": {
+    "id": "990496a8-6ecf-4e0f-bf24-d9d0fe1eed8d",
+    "quantity": 3
+  },
+  "acceptedBid": {
+    "id": "c91e330c-df2a-4bf3-8993-775cbd1f3ae4",
+    "payment_reference": "E2E-20260506-accepted-payment"
+  },
+  "pendingBid": {
+    "id": "9fba5bae-4d5e-469f-bd5b-24a655312ad0",
+    "payment_reference": "E2E-20260506-pending-payment"
+  },
+  "pendingApprovalDeal": {
+    "id": "0ed63cf2-53d5-4f7d-acfe-6bf271aaa70f",
+    "status": "pending_payment",
+    "final_price": 120000
+  }
+}

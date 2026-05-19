@@ -65,7 +65,7 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
         configuration:car_configurations(*)
       `)
       .eq('buyer_id', user.id)
-      .eq('status', 'accepted')
+      .in('status', ['pending', 'accepted'])
       .order('created_at', { ascending: false })
 
     if (bidsData) {

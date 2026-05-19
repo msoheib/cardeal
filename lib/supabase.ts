@@ -158,3 +158,29 @@ export interface DealerInventory {
   configuration?: CarConfiguration
   dealer?: Dealer
 }
+
+export interface VehicleMake {
+  id: string
+  slug: string
+  name_ar: string
+  name_en?: string | null
+  origin_country?: string | null
+  classification?: string | null
+  notes?: string | null
+  source_sheets: string[]
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface VehicleModel {
+  id: string
+  make_id: string
+  slug: string
+  name_ar?: string | null
+  name_en: string
+  source_sheets: string[]
+  active: boolean
+  created_at: string
+  updated_at: string
+}

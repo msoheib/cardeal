@@ -1,4 +1,7 @@
+import { VEHICLE_CATALOG_TEXT } from './generated-vehicle-catalog'
+
 const VEHICLE_TEXT: Record<string, string> = {
+  ...VEHICLE_CATALOG_TEXT,
   Toyota: 'تويوتا',
   Lexus: 'لكزس',
   Nissan: 'نيسان',
@@ -114,6 +117,45 @@ export function localizeVehicleText(value: string | null | undefined) {
   const text = value?.trim()
   if (!text) return ''
   return VEHICLE_TEXT[text] || VEHICLE_TEXT[text.toUpperCase()] || text
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\u064b-\u065f\u0670\u0640]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
+export function vehicleSearchTerms(value: string | null | undefined) {
+  const text = value?.trim()
+  if (!text) return []
+
+  const normalizedText = normalizeSearchText(text)
+  const candidates = new Set<string>([text])
+  const searchParts = normalizedText.split(' ').filter(part => part.length >= 2)
+
+  Object.entries(VEHICLE_TEXT).forEach(([source, localized]) => {
+    const normalizedSource = normalizeSearchText(source)
+    const normalizedLocalized = normalizeSearchText(localized)
+
+    const matchesFullText =
+      normalizedSource.includes(normalizedText) ||
+      normalizedLocalized.includes(normalizedText) ||
+      normalizedText.includes(normalizedSource) ||
+      normalizedText.includes(normalizedLocalized)
+
+    const matchesPart = searchParts.some(part =>
+      normalizedSource.includes(part) || normalizedLocalized.includes(part)
+    )
+
+    if (matchesFullText || matchesPart) {
+      candidates.add(source)
+      candidates.add(localized)
+    }
+  })
+
+  return Array.from(candidates)
 }
 
 export function vehicleTitle(config: { make?: string | null; model?: string | null; year?: number | string | null }) {

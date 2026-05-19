@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint .",
     "test:security": "node --test tests/security/*.test.mjs",
-    "seed:cars": "node scripts/seed-cars.js"
+    "seed:cars": "node scripts/seed-cars.js",
+    "e2e:prod:seed": "node scripts/e2e-production-seed.js",
+    "e2e:prod:cleanup": "node scripts/e2e-production-cleanup.js",
+    "seed:vehicle-catalog": "node scripts/import-vehicle-catalog.js"
   },
   "overrides": {
     "postcss": "8.5.10"

@@ -1,0 +1,70 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "السيارات المتاحة اختر السيارة ثم قدّم عرضك برسوم التزام ثابتة." [ref=e5] [cursor=pointer]:
+          - /url: /
+          - img [ref=e7]
+          - generic [ref=e11]:
+            - heading "السيارات المتاحة" [level=1] [ref=e12]
+            - paragraph [ref=e13]: اختر السيارة ثم قدّم عرضك برسوم التزام ثابتة.
+        - generic [ref=e14]:
+          - generic [ref=e15]: تجار موثّقون
+          - generic [ref=e16]: رسوم 500 ر.س
+          - link "لوحة التحكم" [ref=e17] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e18]
+            - text: لوحة التحكم
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - heading "قارن السيارات، راقب السعر، وابدأ العرض من شاشة واحدة." [level=2] [ref=e27]
+        - paragraph [ref=e28]: الصفحة تعرض السيارات التي يمكن تقديم عروض عليها الآن، مع فصل السيارات التي سبق وقدّمت عليها حتى لا تضيع بين النتائج.
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]: "0"
+          - generic [ref=e32]: متاحة
+        - generic [ref=e33]:
+          - generic [ref=e34]: "0"
+          - generic [ref=e35]: ضمن عروضك
+        - button "تحديث" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - text: تحديث
+    - generic [ref=e42]:
+      - complementary [ref=e43]:
+        - generic [ref=e44]:
+          - heading "فلترة السوق" [level=3] [ref=e46]:
+            - generic [ref=e47]:
+              - img [ref=e48]
+              - text: فلترة السوق
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - img
+              - textbox "ابحث بالماركة أو الموديل" [ref=e51]
+            - generic [ref=e52]:
+              - text: الماركة
+              - combobox [ref=e53] [cursor=pointer]:
+                - img [ref=e54]
+              - combobox [ref=e56]
+            - generic [ref=e57]:
+              - text: نطاق السعر
+              - generic [ref=e58]:
+                - spinbutton [ref=e59]
+                - generic [ref=e60]: "-"
+                - spinbutton [ref=e61]
+            - generic [ref=e62]:
+              - text: منشأ السيارة
+              - combobox [ref=e63] [cursor=pointer]:
+                - img [ref=e64]
+              - combobox [ref=e66]
+      - main [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - heading "جاري تجهيز السيارات..." [level=2] [ref=e70]
+            - paragraph [ref=e71]: سعر الوكالة، الفئة، اللون، المنشأ، وحالة التقديم.
+          - button "تحديث النتائج" [ref=e72] [cursor=pointer]:
+            - img [ref=e73]
+            - text: تحديث النتائج
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=e120] [cursor=pointer]:
+    - img [ref=e121]
