@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Building2, Car, LayoutDashboard, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowLeft, Building2, Car, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import { localizeVehicleText } from '@/lib/arabic-display'
 import { formatNumber } from '@/lib/format'
 import { getCurrentUser } from '@/lib/auth'
 import { getAvailableConfigurations, getCarMakes, getCarOrigins } from '@/lib/cars'
-import { CarConfiguration, supabase } from '@/lib/supabase'
+import { AvailableCarConfiguration, supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 interface FiltersState {
@@ -38,7 +38,7 @@ const defaultFilters: FiltersState = {
 }
 
 export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseContentProps) {
-  const [configs, setConfigs] = useState<CarConfiguration[]>([])
+  const [configs, setConfigs] = useState<AvailableCarConfiguration[]>([])
   const [makes, setMakes] = useState<string[]>([])
   const [origins, setOrigins] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -113,7 +113,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
         else result.remainingConfigs.push(config)
         return result
       },
-      { appliedConfigs: [] as CarConfiguration[], remainingConfigs: [] as CarConfiguration[] }
+      { appliedConfigs: [] as AvailableCarConfiguration[], remainingConfigs: [] as AvailableCarConfiguration[] }
     )
   }, [configs, appliedConfigIds])
 
@@ -133,45 +133,6 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
 
   return (
     <div className={cn('bg-background text-foreground', showDashboardLink ? 'min-h-screen' : 'rounded-2xl py-2')}>
-      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="container mx-auto flex flex-col gap-4 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-sm">
-              <Car className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-foreground">السيارات المتاحة</h1>
-              <p className="text-sm text-muted-foreground">اختر السيارة ثم قدّم عرضك برسوم التزام ثابتة.</p>
-            </div>
-          </Link>
-
-          <nav className="hidden items-center gap-1 rounded-full border border-border bg-card p-1 text-sm shadow-sm md:flex">
-            <Link href="/cars" className="rounded-full bg-primary px-4 py-2 font-semibold text-primary-foreground">
-              السوق
-            </Link>
-            <Link href="/dashboard" className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">
-              مزايداتي
-            </Link>
-            <Link href="/dealer/apply" className="rounded-full px-4 py-2 font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">
-              الموردون
-            </Link>
-          </nav>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="rounded-full border-border px-3 py-1.5 text-muted-foreground">تجار موثّقون</Badge>
-            <Badge variant="outline" className="rounded-full border-border px-3 py-1.5 text-muted-foreground">رسوم 500 ر.س</Badge>
-            {showDashboardLink && (
-              <Button asChild variant="outline" className="rounded-xl bg-card">
-                <Link href="/dashboard">
-                  <LayoutDashboard className="ml-2 h-4 w-4" />
-                  لوحة التحكم
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
-
       <div className="container mx-auto flex flex-col items-start gap-6 px-4 py-6 lg:flex-row">
         <aside className="w-full shrink-0 lg:sticky lg:top-28 lg:w-[320px]">
           <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-sm">
@@ -363,7 +324,7 @@ function FilterSelect({
   )
 }
 
-function CarGrid({ configs, applied = false }: { configs: CarConfiguration[]; applied?: boolean }) {
+function CarGrid({ configs, applied = false }: { configs: AvailableCarConfiguration[]; applied?: boolean }) {
   return (
     <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
       {configs.map((config) => (

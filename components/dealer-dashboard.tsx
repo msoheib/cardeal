@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getDealerInventory, getDealerOpportunities } from '@/lib/cars'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { archiveDealerInventoryListing, getDealerInventory, getDealerOpportunities, restoreDealerInventoryListing } from '@/lib/cars'
 import { acceptBid, getDealsByDealer } from '@/lib/deals' // Use singular acceptBid
 import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
 import { formatCurrencySar, formatGregorianDate, formatGregorianTime } from '@/lib/format'
@@ -23,7 +24,11 @@ import {
   DollarSign,
   Lock,
   Phone,
-  CheckCircle
+  CheckCircle,
+  Eye,
+  Pencil,
+  Archive,
+  RotateCcw
 } from 'lucide-react'
 
 interface DealerDashboardProps {
@@ -33,9 +38,13 @@ interface DealerDashboardProps {
 // Extended types for UI
 interface InventoryItem {
   id: string
+  dealer_id: string
   quantity: number
   status: string
   car_configuration_id: string
+  agency_price: number
+  listing_description?: string | null
+  listing_images: string[]
   configuration: CarConfiguration
   price_slots?: number[]
 }
@@ -45,6 +54,8 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
   const [opportunities, setOpportunities] = useState<any[]>([]) // Pending bids
   const [deals, setDeals] = useState<Deal[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [inventoryView, setInventoryView] = useState<'current' | 'archived'>('current')
+  const [archiveCandidate, setArchiveCandidate] = useState<InventoryItem | null>(null)
   const { toast } = useToast()
 
   const loadDashboardData = async () => {
@@ -107,6 +118,43 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     window.location.href = '/'
   }
 
+  const refreshInventory = async () => {
+    const { data: dealerData } = await supabase
+      .from('dealers')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+    if (!dealerData) return
+    const { data: invData } = await getDealerInventory(dealerData.id)
+    if (invData) setInventory(invData as InventoryItem[])
+  }
+
+  const handleArchive = async () => {
+    if (!archiveCandidate) return
+    setIsProcessing(true)
+    const result = await archiveDealerInventoryListing(archiveCandidate.id)
+    setIsProcessing(false)
+    setArchiveCandidate(null)
+    if (result.error) {
+      toast({ title: 'تعذر إزالة الإعلان', description: toArabicDashboardError(result.error), variant: 'destructive' })
+      return
+    }
+    toast({ title: 'تمت إزالة الإعلان', description: 'تم إخفاؤه من السوق ويمكن استعادته من تبويب المؤرشف.' })
+    await refreshInventory()
+  }
+
+  const handleRestore = async (item: InventoryItem) => {
+    setIsProcessing(true)
+    const result = await restoreDealerInventoryListing(item.id)
+    setIsProcessing(false)
+    if (result.error) {
+      toast({ title: 'تعذر استعادة الإعلان', description: toArabicDashboardError(result.error), variant: 'destructive' })
+      return
+    }
+    toast({ title: 'تمت استعادة الإعلان', description: 'عاد الإعلان إلى المخزون الحالي.' })
+    await refreshInventory()
+  }
+
   const getDealStatusBadge = (status: string) => {
     switch (status) {
       case 'pending_payment':
@@ -124,8 +172,9 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
 
   return (
     <div className="bg-gray-50 min-h-screen" dir="rtl">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <Card className="border-border bg-card shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">لوحة التحكم (تاجر)</h1>
             <p className="text-sm text-gray-600">مرحباً، {user.full_name}</p>
@@ -142,11 +191,9 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
               خروج
             </Button>
           </div>
-        </div>
-      </header>
+          </CardContent>
+        </Card>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <Card>
@@ -162,7 +209,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                 <CardContent className="p-6 flex items-center justify-between">
                     <div>
                         <p className="text-sm font-medium text-gray-500">سياراتي المعروضة</p>
-                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.length}</h3>
+                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.filter((item) => item.status !== 'hidden').length}</h3>
                     </div>
                     <CarIcon className="w-8 h-8 text-blue-500" />
                 </CardContent>
@@ -262,17 +309,28 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                         </Button>
                     </Link>
                 </div>
-                
-                {inventory.length === 0 ? (
-                    <Card><CardContent className="p-8 text-center text-gray-500">لا يوجد مخزون حالياً.</CardContent></Card>
+
+                <div className="flex gap-2 border-b pb-2">
+                    <Button type="button" size="sm" variant={inventoryView === 'current' ? 'default' : 'outline'} onClick={() => setInventoryView('current')}>
+                        الحالي ({inventory.filter((item) => item.status !== 'hidden').length})
+                    </Button>
+                    <Button type="button" size="sm" variant={inventoryView === 'archived' ? 'default' : 'outline'} onClick={() => setInventoryView('archived')}>
+                        المؤرشف ({inventory.filter((item) => item.status === 'hidden').length})
+                    </Button>
+                </div>
+
+                {(() => {
+                    const visibleInventory = inventory.filter((item) => inventoryView === 'archived' ? item.status === 'hidden' : item.status !== 'hidden')
+                    return visibleInventory.length === 0 ? (
+                    <Card><CardContent className="p-8 text-center text-gray-500">{inventoryView === 'archived' ? 'لا توجد إعلانات مؤرشفة.' : 'لا يوجد مخزون حالياً.'}</CardContent></Card>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {inventory.map((item) => (
+                        {visibleInventory.map((item) => (
                             <Card key={item.id} className="flex flex-col">
                                 <CardHeader className="p-4 pb-0">
                                     <div className="flex justify-between items-start">
                                         <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
-                                            {item.status === 'active' ? 'نشط' : item.status}
+                                            {item.status === 'active' ? 'نشط' : item.status === 'hidden' ? 'مؤرشف' : 'نفدت الكمية'}
                                         </Badge>
                                         {item.quantity === 0 && <Badge variant="destructive">نفذت الكمية</Badge>}
                                     </div>
@@ -284,19 +342,26 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                                 <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-end">
                                     <div className="flex justify-between items-center mb-4">
                                         <span className="text-sm text-gray-500">الكمية: {item.quantity}</span>
-                                        <span className="font-bold text-primary">{formatCurrencySar(item.configuration.msrp)}</span>
+                                        <span className="font-bold text-primary">{formatCurrencySar(item.agency_price || item.configuration.msrp)}</span>
                                     </div>
                                     <div className="flex gap-2">
                                         <Link href={`/cars/${item.car_configuration_id}`} className="flex-1">
-                                            <Button variant="outline" className="w-full">عرض الصفحة</Button>
+                                            <Button variant="outline" className="w-full"><Eye className="ml-2 h-4 w-4" />عرض</Button>
                                         </Link>
-                                        {/* Future: Edit Quantity Button */}
+                                        <Link href={`/dealer/cars/${item.id}/edit`}>
+                                            <Button variant="outline" size="icon" aria-label="تعديل"><Pencil className="h-4 w-4" /></Button>
+                                        </Link>
+                                        {inventoryView === 'archived' ? (
+                                            <Button type="button" variant="outline" size="icon" aria-label="استعادة" onClick={() => handleRestore(item)} disabled={isProcessing}><RotateCcw className="h-4 w-4" /></Button>
+                                        ) : (
+                                            <Button type="button" variant="outline" size="icon" aria-label="إزالة" onClick={() => setArchiveCandidate(item)} disabled={isProcessing}><Archive className="h-4 w-4" /></Button>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
-                )}
+                )})()}
             </TabsContent>
 
             {/* Deals */}
@@ -393,6 +458,25 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
 
         </Tabs>
       </main>
+      <Dialog open={Boolean(archiveCandidate)} onOpenChange={(open) => !open && setArchiveCandidate(null)}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>إزالة الإعلان من المخزون؟</DialogTitle>
+            <DialogDescription>سيتم إخفاء الإعلان من السوق دون حذف تاريخه أو كميته. يمكنك استعادته لاحقاً من تبويب المؤرشف.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setArchiveCandidate(null)}>إلغاء</Button>
+            <Button type="button" variant="destructive" onClick={handleArchive} disabled={isProcessing}>{isProcessing ? 'جاري الإزالة...' : 'إزالة الإعلان'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
+}
+
+function toArabicDashboardError(error: unknown) {
+  const message = typeof error === 'string' ? error : error && typeof error === 'object' && 'message' in error ? String((error as { message?: unknown }).message || '') : ''
+  if (/unresolved_paid_offer_or_pending_deal/i.test(message)) return 'لا يمكن إخفاء الإعلان لوجود عرض مدفوع أو طلب قيد المعالجة.'
+  if (/not_found|authorized|permission/i.test(message)) return 'لا يمكن الوصول إلى هذا الإعلان.'
+  return message || 'حدث خطأ غير متوقع.'
 }

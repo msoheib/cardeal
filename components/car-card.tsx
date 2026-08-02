@@ -10,17 +10,21 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { CarMediaPlaceholder } from '@/components/car-media-placeholder'
 import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
 import { formatCurrencySar } from '@/lib/format'
-import { CarConfiguration } from '@/lib/supabase'
+import { AvailableCarConfiguration, CarConfiguration } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 interface CarCardProps {
-  config: CarConfiguration
+  config: CarConfiguration | AvailableCarConfiguration
   showBidStats?: boolean
   isApplied?: boolean
 }
 
 export function CarCard({ config, showBidStats = false, isApplied = false }: CarCardProps) {
-  const mainImage = config.images && config.images.length > 0 ? config.images[0] : null
+  const availableConfig = config as AvailableCarConfiguration
+  const listingImages = availableConfig.representative_images?.length
+    ? availableConfig.representative_images
+    : config.images
+  const mainImage = listingImages && listingImages.length > 0 ? listingImages[0] : null
   const title = vehicleTitle(config)
   const trimLabel = localizeVehicleText(config.trim || config.variant) || 'قياسي'
   const colorLabel = localizeVehicleText(config.color) || 'حسب التوفر'
@@ -89,7 +93,7 @@ export function CarCard({ config, showBidStats = false, isApplied = false }: Car
         <div className="space-y-3 border-t border-border pt-4">
           <div className="flex items-end justify-between gap-4">
             <span className="text-sm text-muted-foreground">سعر الوكالة</span>
-            <span className="text-xl font-bold text-foreground">{formatCurrencySar(config.msrp)}</span>
+            <span className="text-xl font-bold text-foreground">{formatCurrencySar(availableConfig.display_price ?? config.msrp)}</span>
           </div>
           <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
             <span className="text-sm text-muted-foreground">رسوم الالتزام</span>

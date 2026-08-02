@@ -328,30 +328,39 @@ export type Database = {
       }
       dealer_inventory: {
         Row: {
+          agency_price: number
           car_configuration_id: string | null
           created_at: string | null
           dealer_id: string | null
           id: string
+          listing_description: string | null
+          listing_images: string[]
           price_slots: number[] | null
           quantity: number | null
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          agency_price: number
           car_configuration_id?: string | null
           created_at?: string | null
           dealer_id?: string | null
           id?: string
+          listing_description?: string | null
+          listing_images?: string[]
           price_slots?: number[] | null
           quantity?: number | null
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          agency_price?: number
           car_configuration_id?: string | null
           created_at?: string | null
           dealer_id?: string | null
           id?: string
+          listing_description?: string | null
+          listing_images?: string[]
           price_slots?: number[] | null
           quantity?: number | null
           status?: string | null
@@ -682,6 +691,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_dealer_inventory_listing: {
+        Args: { p_inventory_id: string }
+        Returns: Json
+      }
       accept_bid: {
         Args: { p_bid_id: string }
         Returns: Json
@@ -731,6 +744,57 @@ export type Database = {
         }
       }
       process_fcfs_deposit: { Args: { p_bid_id: string }; Returns: Json }
+      restore_dealer_inventory_listing: {
+        Args: { p_inventory_id: string }
+        Returns: Json
+      }
+      save_dealer_inventory_listing: {
+        Args: {
+          p_agency_price: number
+          p_color: string
+          p_description: string | null
+          p_images: string[]
+          p_inventory_id: string | null
+          p_make: string
+          p_model: string
+          p_origin_locale: string
+          p_quantity: number
+          p_trim: string
+          p_variant: string
+          p_year: number
+        }
+        Returns: Json
+      }
+      search_available_configurations: {
+        Args: {
+          p_make?: string | null
+          p_origin_locale?: string | null
+          p_price_from?: number | null
+          p_price_to?: number | null
+          p_search?: string | null
+          p_year_from?: number | null
+          p_year_to?: number | null
+        }
+        Returns: {
+          available_quantity: number
+          color: string | null
+          created_at: string | null
+          description: string | null
+          display_price: number
+          id: string
+          images: string[] | null
+          make: string
+          model: string
+          msrp: number
+          origin_locale: string | null
+          representative_images: string[] | null
+          specifications: Json | null
+          trim: string | null
+          updated_at: string | null
+          variant: string | null
+          year: number
+        }[]
+      }
     }
     Enums: {
       bid_status: "pending" | "accepted" | "rejected" | "expired" | "cancelled"

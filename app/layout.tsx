@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Tajawal } from 'next/font/google'
+import { AppNavbar } from '@/components/app-navbar'
 import { RealTimeProvider } from '@/components/ui/real-time-provider'
 import { Toaster } from '@/components/ui/toaster'
 
@@ -26,6 +27,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body className={`${tajawal.variable} font-sans antialiased`}>
         <RealTimeProvider>
+          <AppNavbar />
           {children}
           <Toaster />
         </RealTimeProvider>

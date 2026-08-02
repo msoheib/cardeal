@@ -257,11 +257,10 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   }
 
   return (
-    <div>
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <div className="bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <Card className="mb-8 border-border bg-card shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Shield className="w-8 h-8 text-red-600" />
               <div>
@@ -282,11 +281,9 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                 تسجيل الخروج
               </Button>
             </div>
-          </div>
-        </div>
-      </header>
+          </CardContent>
+        </Card>
 
-      <div className="container mx-auto px-4 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card>

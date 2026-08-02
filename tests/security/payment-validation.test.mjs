@@ -84,7 +84,7 @@ test('rejects mismatched car configuration metadata', () => {
 
 test('payment RPC guards reused payment references idempotently', async () => {
   const sql = await readFile(
-    new URL('../../supabase/migrations/20260505120000_security_hardening.sql', import.meta.url),
+      new URL('../../supabase/migrations/20260505153844_security_hardening.sql', import.meta.url),
     'utf8'
   )
 

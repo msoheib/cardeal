@@ -311,7 +311,9 @@ async function seed() {
         car_configuration_id: config.id,
         quantity: 3,
         status: 'active',
-        price_slots: [119000, 120000],
+        agency_price: 120000,
+        listing_description: configuration.description,
+        listing_images: [],
         created_at: now,
         updated_at: now,
       })

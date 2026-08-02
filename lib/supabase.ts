@@ -152,11 +152,38 @@ export interface DealerInventory {
   car_configuration_id: string
   quantity: number
   status: 'active' | 'out_of_stock' | 'hidden'
+  agency_price: number
+  listing_description?: string | null
+  listing_images: string[]
   price_slots?: number[]
   created_at: string
   updated_at: string
   configuration?: CarConfiguration
   dealer?: Dealer
+}
+
+export interface DealerVehicleFormValue {
+  make: string
+  model: string
+  year: number
+  trim: string
+  color: string
+  origin_locale: string
+  variant: string
+  agencyPrice: number
+  quantity: number
+  description: string
+  images: string[]
+}
+
+export interface DealerInventoryListing extends DealerInventory {
+  configuration?: CarConfiguration
+}
+
+export interface AvailableCarConfiguration extends CarConfiguration {
+  display_price: number
+  available_quantity: number
+  representative_images: string[]
 }
 
 export interface VehicleMake {

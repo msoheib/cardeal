@@ -63,48 +63,6 @@ const featuredCars = [
 export default function HomePage() {
   return (
     <div className="min-h-screen app-gradient-bg text-foreground">
-      <header className="sticky top-0 z-50 border-b border-white/70 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/" className="group flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#15383b] text-white shadow-[0_18px_30px_-22px_rgba(21,56,59,0.7)] transition-transform group-hover:-translate-y-0.5">
-              <Car className="h-5 w-5" />
-            </span>
-            <span>
-              <span className="block text-lg font-extrabold tracking-tight text-[#102528]">
-                كار ديل
-              </span>
-              <span className="block text-xs font-medium text-muted-foreground">
-                منصة مزايدة سيارات
-              </span>
-            </span>
-          </Link>
-
-          <nav className="hidden items-center gap-7 text-sm font-semibold text-muted-foreground md:flex">
-            <Link href="/cars" className="transition hover:text-foreground">
-              السيارات
-            </Link>
-            <Link href="/dealer/apply" className="transition hover:text-foreground">
-              طلب تاجر
-            </Link>
-            <Link href="/dashboard" className="transition hover:text-foreground">
-              لوحة التحكم
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" className="hidden rounded-full px-5 sm:inline-flex">
-              <Link href="/auth/login">دخول</Link>
-            </Button>
-            <Button asChild className="rounded-full px-5 shadow-[0_16px_26px_-18px_rgba(20,184,166,0.9)]">
-              <Link href="/cars">
-                تصفّح السوق
-                <ArrowLeft className="mr-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
       <main>
         <section className="relative overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(20,184,166,0.18),transparent_30%),radial-gradient(circle_at_85%_10%,rgba(245,158,11,0.18),transparent_28%)]" />

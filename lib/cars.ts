@@ -1,10 +1,17 @@
-import { supabase, VehicleMake, VehicleModel } from './supabase'
+import {
+  supabase,
+  AvailableCarConfiguration,
+  DealerInventoryListing,
+  DealerVehicleFormValue,
+  VehicleMake,
+  VehicleModel,
+} from './supabase'
 import { vehicleSearchTerms } from './arabic-display'
 
 const searchableConfigFields = ['make', 'model', 'trim', 'color', 'origin_locale']
 
 function sanitizeSearchTerm(term: string) {
-  return term.replace(/[\\%,()]/g, ' ').replace(/\s+/g, ' ').trim()
+  return term.replace(/[\\%,()|]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 // BUYER: Get generic configurations that are available (have inventory)
@@ -18,53 +25,102 @@ export const getAvailableConfigurations = async (filters: {
   priceTo?: number
   search?: string
 } = {}) => {
-  // First find configs that have active inventory
-  // Note: This is an optimization; ideally we'd join, but Supabase JS syntax for deep filtering on joins can be tricky.
-  // Let's rely on the fact we want to show configs.
-  
-  let query = supabase
-    .from('car_configurations')
-    .select(`
-      *,
-      inventory:dealer_inventory(quantity, status)
-    `)
-    // Note: Filtering for configs with inventory is done client-side below 
+  const terms = filters.search
+    ? vehicleSearchTerms(filters.search)
+        .map(sanitizeSearchTerm)
+        .filter(Boolean)
+        .slice(0, 12)
+    : []
 
-  if (filters.make) query = query.eq('make', filters.make)
-  if (filters.model) query = query.eq('model', filters.model)
-  if (filters.origin_locale) query = query.eq('origin_locale', filters.origin_locale)
-  if (filters.yearFrom) query = query.gte('year', filters.yearFrom)
-  if (filters.yearTo) query = query.lte('year', filters.yearTo)
-  if (filters.priceFrom) query = query.gte('msrp', filters.priceFrom)
-  if (filters.priceTo) query = query.lte('msrp', filters.priceTo)
-  
-  if (filters.search) {
-    const terms = vehicleSearchTerms(filters.search)
-      .map(sanitizeSearchTerm)
-      .filter(Boolean)
-      .slice(0, 12)
+  // The RPC aggregates dealer-owned price, stock, and images while keeping
+  // dealer-specific rows out of the buyer response.
+  const { data, error } = await supabase.rpc('search_available_configurations', {
+    p_make: filters.make || null,
+    p_origin_locale: filters.origin_locale || null,
+    p_year_from: filters.yearFrom || null,
+    p_year_to: filters.yearTo || null,
+    p_price_from: filters.priceFrom || null,
+    p_price_to: filters.priceTo || null,
+    p_search: terms.join('|') || null,
+  })
 
-    if (terms.length > 0) {
-      query = query.or(
-        terms
-          .flatMap(term => searchableConfigFields.map(field => `${field}.ilike.%${term}%`))
-          .join(',')
-      )
+  if (!error) {
+    return {
+      data: ((data || []) as AvailableCarConfiguration[]).map((config) => ({
+        ...config,
+        images: config.representative_images?.length
+          ? config.representative_images
+          : config.images || [],
+      })),
+      error: null,
     }
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false })
+  // Migration-window fallback for environments where the RPC has not been
+  // deployed yet. It still filters out hidden and out-of-stock inventory.
+  const buildLegacyQuery = (inventoryFields: string) => supabase
+    .from('car_configurations')
+    .select(`*, inventory:dealer_inventory(${inventoryFields})`)
 
-  if (error) return { data: [], error }
+  let legacyQuery = buildLegacyQuery('agency_price, listing_images, quantity, status')
 
-  // Client-side filter to ensure at least one inventory item is available/active
-  // (Supabase "not is null" check above is basic existence)
-  const availableConfigs = data?.filter((config: any) => {
-    const validInventory = config.inventory?.some((inv: any) => inv.status === 'active' && inv.quantity > 0)
-    return validInventory
-  }) || []
+  if (filters.make) legacyQuery = legacyQuery.eq('make', filters.make)
+  if (filters.model) legacyQuery = legacyQuery.eq('model', filters.model)
+  if (filters.origin_locale) legacyQuery = legacyQuery.eq('origin_locale', filters.origin_locale)
+  if (filters.yearFrom) legacyQuery = legacyQuery.gte('year', filters.yearFrom)
+  if (filters.yearTo) legacyQuery = legacyQuery.lte('year', filters.yearTo)
 
-  return { data: availableConfigs, error: null }
+  if (terms.length > 0) {
+    legacyQuery = legacyQuery.or(
+      terms
+        .flatMap(term => searchableConfigFields.map(field => `${field}.ilike.%${term}%`))
+        .join(','),
+    )
+  }
+
+  let { data: legacyData, error: legacyError } = await legacyQuery.order('created_at', { ascending: false })
+  if (legacyError && /agency_price|listing_images|column.*does not exist|schema cache/i.test(legacyError.message || '')) {
+    legacyQuery = buildLegacyQuery('quantity, status')
+    if (filters.make) legacyQuery = legacyQuery.eq('make', filters.make)
+    if (filters.model) legacyQuery = legacyQuery.eq('model', filters.model)
+    if (filters.origin_locale) legacyQuery = legacyQuery.eq('origin_locale', filters.origin_locale)
+    if (filters.yearFrom) legacyQuery = legacyQuery.gte('year', filters.yearFrom)
+    if (filters.yearTo) legacyQuery = legacyQuery.lte('year', filters.yearTo)
+    if (terms.length > 0) {
+      legacyQuery = legacyQuery.or(
+        terms
+          .flatMap(term => searchableConfigFields.map(field => `${field}.ilike.%${term}%`))
+          .join(','),
+      )
+    }
+    const fallback = await legacyQuery.order('created_at', { ascending: false })
+    legacyData = fallback.data
+    legacyError = fallback.error
+  }
+  if (legacyError) return { data: [], error }
+
+  const availableConfigs = (legacyData || [])
+    .map((config: any) => {
+      const inventory = (config.inventory || []).filter(
+        (item: any) => item.status === 'active' && item.quantity > 0,
+      )
+      const displayPrice = inventory.length
+        ? Math.min(...inventory.map((item: any) => item.agency_price || config.msrp))
+        : config.msrp
+      const listingImages = inventory.find((item: any) => item.listing_images?.length)?.listing_images
+      return {
+        ...config,
+        display_price: displayPrice,
+        available_quantity: inventory.reduce((sum: number, item: any) => sum + item.quantity, 0),
+        representative_images: listingImages || config.images || [],
+        images: listingImages || config.images || [],
+      }
+    })
+    .filter((config: any) => config.available_quantity > 0)
+    .filter((config: any) => !filters.priceFrom || config.display_price >= filters.priceFrom)
+    .filter((config: any) => !filters.priceTo || config.display_price <= filters.priceTo)
+
+  return { data: availableConfigs as AvailableCarConfiguration[], error: null }
 }
 
 // DEALER: Get their specific inventory
@@ -78,7 +134,71 @@ export const getDealerInventory = async (dealerId: string) => {
     .eq('dealer_id', dealerId)
     .order('created_at', { ascending: false })
 
-  return { data, error }
+  return { data: (data || []) as DealerInventoryListing[], error }
+}
+
+export const getDealerInventoryItem = async (inventoryId: string) => {
+  const { data, error } = await supabase
+    .from('dealer_inventory')
+    .select(`*, configuration:car_configurations(*)`)
+    .eq('id', inventoryId)
+    .single()
+
+  return { data: data as DealerInventoryListing | null, error }
+}
+
+type DealerInventorySaveInput = DealerVehicleFormValue & { inventoryId?: string | null }
+
+export const saveDealerInventoryListing = async (input: DealerInventorySaveInput) => {
+  const { data, error } = await supabase.rpc('save_dealer_inventory_listing', {
+    p_inventory_id: input.inventoryId || null,
+    p_make: input.make,
+    p_model: input.model,
+    p_year: input.year,
+    p_trim: input.trim,
+    p_color: input.color,
+    p_origin_locale: input.origin_locale,
+    p_variant: input.variant,
+    p_agency_price: input.agencyPrice,
+    p_quantity: input.quantity,
+    p_description: input.description || null,
+    p_images: input.images || [],
+  })
+
+  if (error) return { data: null, error, status: 'error' as const }
+
+  const result = (data || {}) as { success?: boolean; error?: string; status?: string; inventory_id?: string }
+  if (!result.success) {
+    return {
+      data: null,
+      error: { message: result.error || 'تعذر حفظ الإعلان.' },
+      status: 'error' as const,
+    }
+  }
+
+  return { data: result, error: null, status: input.inventoryId ? 'updated' as const : 'created' as const }
+}
+
+export const archiveDealerInventoryListing = async (inventoryId: string) => {
+  const { data, error } = await supabase.rpc('archive_dealer_inventory_listing', {
+    p_inventory_id: inventoryId,
+  })
+  if (error) return { data: null, error }
+  const result = (data || {}) as { success?: boolean; error?: string }
+  return result.success
+    ? { data: result, error: null }
+    : { data: null, error: { message: result.error || 'تعذر إخفاء الإعلان.' } }
+}
+
+export const restoreDealerInventoryListing = async (inventoryId: string) => {
+  const { data, error } = await supabase.rpc('restore_dealer_inventory_listing', {
+    p_inventory_id: inventoryId,
+  })
+  if (error) return { data: null, error }
+  const result = (data || {}) as { success?: boolean; error?: string }
+  return result.success
+    ? { data: result, error: null }
+    : { data: null, error: { message: result.error || 'تعذر استعادة الإعلان.' } }
 }
 
 // SHARED: Get single config details
@@ -131,80 +251,20 @@ export const addToInventory = async (params: {
   quantity: number
   price_slots?: number[]
 }, confirmNew: boolean = false) => {
-  
-  // 1. Check if config exists
-  const { data: existingConfigs } = await supabase
-    .from('car_configurations')
-    .select('id')
-    .eq('make', params.make)
-    .eq('model', params.model)
-    .eq('year', params.year)
-    .eq('trim', params.trim || '')
-    .eq('color', params.color || '') // Strict match on empty string if null
-    .eq('origin_locale', params.origin_locale || '')
-    .limit(1)
-
-  const existingId = existingConfigs?.[0]?.id
-
-  if (existingId) {
-    // Config exists. Link it.
-    const { data, error } = await supabase
-      .from('dealer_inventory')
-      .insert({
-        dealer_id: params.dealer_id,
-        car_configuration_id: existingId,
-        quantity: params.quantity,
-        status: 'active',
-        price_slots: params.price_slots
-      })
-      .select()
-      .single()
-      
-    if (error?.code === '23505') { // Unique violation
-       return { status: 'exists_in_inventory', message: 'هذه السيارة موجودة بالفعل في مخزونك.' }
-    }
-    return { data, error, status: 'linked' }
-  }
-
-  // 2. Config does not exist
-  if (!confirmNew) {
-    return { status: 'requires_confirmation', message: 'تم اكتشاف تكوين جديد.' }
-  }
-
-  // 3. Create new config and link
-  // Use a transaction-like flow (RPC would be better, but doing client-side for now)
-  const { data: newConfig, error: configError } = await supabase
-    .from('car_configurations')
-    .insert({
-      make: params.make,
-      model: params.model,
-      year: params.year,
-      variant: params.variant,
-      trim: params.trim,
-      color: params.color,
-      origin_locale: params.origin_locale,
-      msrp: params.msrp,
-      description: params.description,
-      images: params.images || []
-    })
-    .select()
-    .single()
-
-  if (configError) return { data: null, error: configError }
-
-  const { data: invData, error: invError } = await supabase
-    .from('dealer_inventory')
-    .insert({
-      dealer_id: params.dealer_id,
-      car_configuration_id: newConfig.id,
-      quantity: params.quantity,
-      status: 'active',
-      price_slots: params.price_slots
-    })
-    .select()
-    .single()
-
-  return { data: invData, error: invError, status: 'created' }
+  void confirmNew
+  return saveDealerInventoryListing({
+    make: params.make,
+    model: params.model,
+    year: params.year,
+    trim: params.trim || '',
+    color: params.color || '',
+    origin_locale: params.origin_locale || '',
+    variant: params.variant || '',
+    agencyPrice: params.msrp,
+    description: params.description || '',
+    images: params.images || [],
+    quantity: params.quantity,
+  })
 }
 
 // Helper to get unique makes (for dropdown)

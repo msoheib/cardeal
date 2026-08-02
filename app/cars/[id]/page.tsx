@@ -34,6 +34,9 @@ interface InventoryItem {
   dealer_id: string
   quantity: number
   status: string
+  agency_price?: number | null
+  listing_description?: string | null
+  listing_images?: string[] | null
   dealer?: {
     company_name: string
     city: string
@@ -59,6 +62,9 @@ function CarDetailContent() {
   const [payStatus, setPayStatus] = useState<'success' | 'failed' | 'error' | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [confirmedDeals, setConfirmedDeals] = useState<Deal[]>([])
+  const [displayPrice, setDisplayPrice] = useState<number | null>(null)
+  const [listingImages, setListingImages] = useState<string[]>([])
+  const [listingDescription, setListingDescription] = useState<string | null>(null)
 
   const loadData = async () => {
     if (!configId) {
@@ -75,16 +81,36 @@ function CarDetailContent() {
     }
 
     // 2. Load Inventory (Dealers who have this)
-    const { data: invData } = await supabase
+    let { data: invData, error: inventoryError } = await supabase
         .from('dealer_inventory')
         .select(`
-            id, dealer_id, quantity, status
+            id, dealer_id, quantity, status, agency_price, listing_description, listing_images
         `)
         .eq('car_configuration_id', configId)
         .eq('status', 'active')
         .gt('quantity', 0)
+
+    if (inventoryError && /agency_price|listing_description|listing_images|column.*does not exist|schema cache/i.test(inventoryError.message || '')) {
+      const fallback = await supabase
+        .from('dealer_inventory')
+        .select('id, dealer_id, quantity, status')
+        .eq('car_configuration_id', configId)
+        .eq('status', 'active')
+        .gt('quantity', 0)
+      invData = fallback.data as typeof invData
+      inventoryError = fallback.error
+    }
     
     if (invData) {
+        const activeInventory = invData as InventoryItem[]
+        const prices = activeInventory
+          .map((item) => item.agency_price)
+          .filter((price): price is number => typeof price === 'number' && Number.isFinite(price) && price > 0)
+        setDisplayPrice(prices.length ? Math.min(...prices) : configData?.msrp || null)
+        const imageListing = activeInventory.find((item) => item.listing_images && item.listing_images.length > 0)
+        setListingImages(imageListing?.listing_images || [])
+        const descriptionListing = activeInventory.find((item) => item.listing_description)
+        setListingDescription(descriptionListing?.listing_description || null)
         const dealerIds = Array.from(new Set(invData.map((item: any) => item.dealer_id).filter(Boolean)))
         const { data: publicDealers } = dealerIds.length
           ? await supabase
@@ -98,6 +124,9 @@ function CarDetailContent() {
           ...item,
           dealer: dealerById.get(item.dealer_id)
         })) as any)
+    }
+    if (!invData || invData.length === 0) {
+      setConfig(null)
     }
 
     // 3. Load User & Bids
@@ -192,30 +221,18 @@ function CarDetailContent() {
   const trimLabel = localizeVehicleText(config.trim) || 'مواصفات وكالة'
   const originLabel = localizeVehicleText(config.origin_locale) || 'غير محدد'
   
-  const images = config.images || []
+  const images = listingImages.length > 0 ? listingImages : config.images || []
   const hasUploadedImages = images.length > 0
+  const buyerDisplayPrice = displayPrice || config.msrp
 
   return (
     <div className="min-h-screen bg-gray-50 text-right" dir="rtl">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/cars" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-              <ArrowRight className="w-4 h-4" />
-              <span>العودة للسيارات</span>
-            </Link>
-            
-            {!currentUser && (
-               <Link href="/auth/login">
-                  <Button variant="outline" size="sm">تسجيل الدخول</Button>
-               </Link>
-            )}
-          </div>
-        </div>
-      </header>
-
       <div className="container mx-auto px-4 py-8">
+        <Link href="/cars" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+          <ArrowRight className="h-4 w-4" />
+          العودة للسوق
+        </Link>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Main Content (Right) */}
@@ -304,10 +321,10 @@ function CarDetailContent() {
                       <p className="font-medium">{originLabel}</p>
                    </div>
                 </div>
-                {config.description && (
+                {(listingDescription || config.description) && (
                    <>
                      <Separator className="my-4" />
-                     <p className="text-gray-600 leading-relaxed">{config.description}</p>
+                     <p className="text-gray-600 leading-relaxed">{listingDescription || config.description}</p>
                    </>
                 )}
               </CardContent>
@@ -340,7 +357,7 @@ function CarDetailContent() {
             {/* Bid Input Card */}
             <BidInput
                configId={config.id}
-               msrp={config.msrp}
+               msrp={buyerDisplayPrice}
                currentUserBid={currentUserBid}
                userId={currentUser?.id}
                locked={isBidLocked}

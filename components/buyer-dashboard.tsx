@@ -210,8 +210,9 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
 
   return (
     <div className="bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <Card className="border-border bg-card shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">مرحبا، {user.full_name}</h1>
             <p className="text-sm text-gray-600">تابع مزايداتك وطلبات السيارات حتى موافقتك النهائية.</p>
@@ -234,10 +235,9 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
               تسجيل الخروج
             </Button>
           </div>
-        </div>
-      </header>
+          </CardContent>
+        </Card>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
         <Tabs defaultValue="bids" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="bids">مزايداتي</TabsTrigger>
