@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Building2, Car, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Building2, Car, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import { localizeVehicleText } from '@/lib/arabic-display'
 import { formatNumber } from '@/lib/format'
 import { getCurrentUser } from '@/lib/auth'
 import { getAvailableConfigurations, getCarMakes, getCarOrigins } from '@/lib/cars'
-import { AvailableCarConfiguration, supabase } from '@/lib/supabase'
+import { AvailableVehicleListing, supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 interface FiltersState {
@@ -38,10 +38,11 @@ const defaultFilters: FiltersState = {
 }
 
 export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseContentProps) {
-  const [configs, setConfigs] = useState<AvailableCarConfiguration[]>([])
+  const [configs, setConfigs] = useState<AvailableVehicleListing[]>([])
   const [makes, setMakes] = useState<string[]>([])
   const [origins, setOrigins] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [appliedConfigIds, setAppliedConfigIds] = useState<string[]>([])
   const [filters, setFilters] = useState<FiltersState>(defaultFilters)
 
@@ -54,7 +55,8 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
     if (filters.priceTo) filtersToApply.priceTo = parseInt(filters.priceTo, 10)
     if (filters.search) filtersToApply.search = filters.search
 
-    const { data } = await getAvailableConfigurations(filtersToApply)
+    const { data, error } = await getAvailableConfigurations(filtersToApply)
+    setLoadError(Boolean(error))
     setConfigs(data ?? [])
     setIsLoading(false)
   }, [filters])
@@ -79,13 +81,13 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
 
       const { data } = await supabase
         .from('bids')
-        .select('car_configuration_id, status')
+        .select('car_configuration_id, status, configuration:car_configurations(listing_spec_id)')
         .eq('buyer_id', user.id)
         .in('status', ['pending', 'accepted'])
 
       setAppliedConfigIds(
         data
-          ? Array.from(new Set(data.map((bid) => bid.car_configuration_id).filter(Boolean))) as string[]
+          ? Array.from(new Set(data.map((bid: any) => bid.configuration?.listing_spec_id).filter(Boolean))) as string[]
           : []
       )
     } catch (error) {
@@ -113,7 +115,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
         else result.remainingConfigs.push(config)
         return result
       },
-      { appliedConfigs: [] as AvailableCarConfiguration[], remainingConfigs: [] as AvailableCarConfiguration[] }
+      { appliedConfigs: [] as AvailableVehicleListing[], remainingConfigs: [] as AvailableVehicleListing[] }
     )
   }, [configs, appliedConfigIds])
 
@@ -156,7 +158,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
                 <div className="relative">
                   <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="ابحث بالماركة أو الموديل"
+                    placeholder="ابحث بالماركة أو الطراز"
                     value={filters.search}
                     onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
                     className="h-11 rounded-xl bg-background pr-11"
@@ -266,6 +268,15 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
 
           {isLoading ? (
             <LoadingCards />
+          ) : loadError ? (
+            <Card className="rounded-2xl border-destructive/30 bg-card py-14 text-center">
+              <CardContent>
+                <AlertCircle className="mx-auto mb-4 h-10 w-10 text-destructive" />
+                <h2 className="text-xl font-bold text-foreground">السوق غير متاح مؤقتاً</h2>
+                <p className="mx-auto mt-2 max-w-md text-muted-foreground">يجري تحديث الخدمة. حاول مرة أخرى بعد قليل.</p>
+                <Button type="button" variant="outline" className="mt-5" onClick={loadCars}>إعادة المحاولة</Button>
+              </CardContent>
+            </Card>
           ) : configs.length === 0 ? (
             <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
           ) : remainingConfigs.length > 0 ? (
@@ -324,7 +335,7 @@ function FilterSelect({
   )
 }
 
-function CarGrid({ configs, applied = false }: { configs: AvailableCarConfiguration[]; applied?: boolean }) {
+function CarGrid({ configs, applied = false }: { configs: AvailableVehicleListing[]; applied?: boolean }) {
   return (
     <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
       {configs.map((config) => (

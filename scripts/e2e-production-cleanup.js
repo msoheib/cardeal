@@ -114,10 +114,11 @@ async function cleanup() {
 
   const { data: configRows } = await supabase
     .from('car_configurations')
-    .select('id')
+    .select('id, listing_spec_id')
     .eq('variant', `${prefix}-variant`)
 
   const configIds = (configRows || []).map((row) => row.id)
+  const listingSpecIds = (configRows || []).map((row) => row.listing_spec_id).filter(Boolean)
 
   const { data: bidRows } = await supabase
     .from('bids')
@@ -172,6 +173,7 @@ async function cleanup() {
   }
 
   await deleteByIds('car_configurations', configIds)
+  await deleteByIds('vehicle_listing_specs', listingSpecIds)
 
   if (includeAuth) {
     for (const user of e2eUsers) {

@@ -149,10 +149,11 @@ async function cleanupExisting(userIds) {
 
   const { data: configRows } = await supabase
     .from('car_configurations')
-    .select('id')
+    .select('id, listing_spec_id')
     .eq('variant', configuration.variant)
 
   const configIds = (configRows || []).map((row) => row.id)
+  const listingSpecIds = (configRows || []).map((row) => row.listing_spec_id).filter(Boolean)
 
   const { data: bidRows } = await supabase
     .from('bids')
@@ -209,6 +210,7 @@ async function cleanupExisting(userIds) {
   }
 
   await deleteByIds('car_configurations', configIds)
+  await deleteByIds('vehicle_listing_specs', listingSpecIds)
 }
 
 async function ensureAuthUser(account) {
@@ -290,11 +292,30 @@ async function seed() {
     'insert dealer'
   )
 
+  const listingSpec = await assertOk(
+    supabase
+      .from('vehicle_listing_specs')
+      .insert({
+        make: configuration.make,
+        model: configuration.model,
+        year: configuration.year,
+        trim: configuration.trim,
+        origin_locale: configuration.origin_locale,
+        variant: configuration.variant,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single(),
+    'insert vehicle listing spec'
+  )
+
   const config = await assertOk(
     supabase
       .from('car_configurations')
       .insert({
         ...configuration,
+        listing_spec_id: listingSpec.id,
         created_at: now,
         updated_at: now,
       })
@@ -303,11 +324,30 @@ async function seed() {
     'insert car configuration'
   )
 
+  const dealerListing = await assertOk(
+    supabase
+      .from('dealer_listings')
+      .insert({
+        dealer_id: dealer.id,
+        listing_spec_id: listingSpec.id,
+        agency_price: 120000,
+        listing_description: configuration.description,
+        listing_images: [],
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single(),
+    'insert dealer listing'
+  )
+
   const inventory = await assertOk(
     supabase
       .from('dealer_inventory')
       .insert({
         dealer_id: dealer.id,
+        dealer_listing_id: dealerListing.id,
         car_configuration_id: config.id,
         quantity: 3,
         status: 'active',

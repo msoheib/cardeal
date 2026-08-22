@@ -1,178 +1,68 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { ArrowRight, Calendar, Gauge, MapPin, Palette, Settings, TrendingUp, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { BidInput } from '@/components/bid-input'
 import { CarMediaPlaceholder } from '@/components/car-media-placeholder'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { supabase, CarConfiguration, Bid, Deal } from '@/lib/supabase'
 import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
-import { formatCurrencySar } from '@/lib/format'
-import { getConfigById, getConfigBids } from '@/lib/cars'
+import { getAvailableListingById, getListingBids } from '@/lib/cars'
 import { getCurrentUser } from '@/lib/auth'
-import { 
-  ArrowRight, 
-  Calendar, 
-  Gauge, 
-  Fuel, 
-  Settings,
-  Users,
-  Building2,
-  TrendingUp,
-  MapPin
-} from 'lucide-react'
+import { formatCurrencySar } from '@/lib/format'
+import { AvailableVehicleListing, Bid, Deal, User, supabase } from '@/lib/supabase'
 
-// Extended type for Inventory with Dealer info
-interface InventoryItem {
-  id: string
-  dealer_id: string
-  quantity: number
-  status: string
-  agency_price?: number | null
-  listing_description?: string | null
-  listing_images?: string[] | null
-  dealer?: {
-    company_name: string
-    city: string
-    verified: boolean
-  }
-}
+type ConfirmedDeal = Pick<Deal, 'id' | 'final_price' | 'status' | 'created_at'> & { car_configuration_id?: string | null }
 
 function CarDetailContent() {
   const params = useParams()
-  const paramId = params?.id
-  const configId = Array.isArray(paramId) ? paramId[0] : paramId
   const router = useRouter()
   const searchParams = useSearchParams()
-  
-  const [config, setConfig] = useState<CarConfiguration | null>(null)
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const rawId = params?.id
+  const listingId = Array.isArray(rawId) ? rawId[0] : rawId
+  const [listing, setListing] = useState<AvailableVehicleListing | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [currentUserBid, setCurrentUserBid] = useState<number | undefined>()
-  const [isBidLocked, setIsBidLocked] = useState<boolean>(false)
+  const [confirmedDeals, setConfirmedDeals] = useState<ConfirmedDeal[]>([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [showPayResult, setShowPayResult] = useState(false)
   const [payStatus, setPayStatus] = useState<'success' | 'failed' | 'error' | null>(null)
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
-  const [confirmedDeals, setConfirmedDeals] = useState<Deal[]>([])
-  const [displayPrice, setDisplayPrice] = useState<number | null>(null)
-  const [listingImages, setListingImages] = useState<string[]>([])
-  const [listingDescription, setListingDescription] = useState<string | null>(null)
 
-  const loadData = async () => {
-    if (!configId) {
-      setIsLoading(false)
+  const loadData = useCallback(async () => {
+    if (!listingId) { setIsLoading(false); return }
+    setIsLoading(true)
+    const listingResult = await getAvailableListingById(listingId)
+    if (listingResult.canonicalId && listingResult.canonicalId !== listingId) {
+      router.replace(`/cars/${listingResult.canonicalId}${window.location.search}`)
       return
     }
+    const nextListing = listingResult.data
+    setListing(nextListing)
+    if (!nextListing) { setIsLoading(false); return }
 
-    setIsLoading(true)
-    
-    // 1. Load Config
-    const { data: configData } = await getConfigById(configId)
-    if (configData) {
-      setConfig(configData)
-    }
-
-    // 2. Load Inventory (Dealers who have this)
-    let { data: invData, error: inventoryError } = await supabase
-        .from('dealer_inventory')
-        .select(`
-            id, dealer_id, quantity, status, agency_price, listing_description, listing_images
-        `)
-        .eq('car_configuration_id', configId)
-        .eq('status', 'active')
-        .gt('quantity', 0)
-
-    if (inventoryError && /agency_price|listing_description|listing_images|column.*does not exist|schema cache/i.test(inventoryError.message || '')) {
-      const fallback = await supabase
-        .from('dealer_inventory')
-        .select('id, dealer_id, quantity, status')
-        .eq('car_configuration_id', configId)
-        .eq('status', 'active')
-        .gt('quantity', 0)
-      invData = fallback.data as typeof invData
-      inventoryError = fallback.error
-    }
-    
-    if (invData) {
-        const activeInventory = invData as InventoryItem[]
-        const prices = activeInventory
-          .map((item) => item.agency_price)
-          .filter((price): price is number => typeof price === 'number' && Number.isFinite(price) && price > 0)
-        setDisplayPrice(prices.length ? Math.min(...prices) : configData?.msrp || null)
-        const imageListing = activeInventory.find((item) => item.listing_images && item.listing_images.length > 0)
-        setListingImages(imageListing?.listing_images || [])
-        const descriptionListing = activeInventory.find((item) => item.listing_description)
-        setListingDescription(descriptionListing?.listing_description || null)
-        const dealerIds = Array.from(new Set(invData.map((item: any) => item.dealer_id).filter(Boolean)))
-        const { data: publicDealers } = dealerIds.length
-          ? await supabase
-              .from('dealer_public_profiles')
-              .select('id, company_name, city, verified')
-              .in('id', dealerIds)
-          : { data: [] }
-
-        const dealerById = new Map((publicDealers || []).map((dealer: any) => [dealer.id, dealer]))
-        setInventory(invData.map((item: any) => ({
-          ...item,
-          dealer: dealerById.get(item.dealer_id)
-        })) as any)
-    }
-    if (!invData || invData.length === 0) {
-      setConfig(null)
-    }
-
-    // 3. Load User & Bids
-    const user = await getCurrentUser()
+    const configurationIds = nextListing.colors.map((color) => color.configuration_id)
+    const [user, bidResult, dealResult] = await Promise.all([
+      getCurrentUser(),
+      getListingBids(configurationIds),
+      supabase.from('deals').select('id, final_price, status, created_at, car_configuration_id').in('car_configuration_id', configurationIds).order('final_price', { ascending: true }),
+    ])
     setCurrentUser(user)
-
-    const { data: bidsData } = await getConfigBids(configId)
-    if (bidsData) {
-      setBids(bidsData)
-      if (user) {
-        const userBid = bidsData.find(bid => bid.buyer_id === user.id)
-        if (userBid) {
-          setCurrentUserBid(userBid.bid_price)
-          setIsBidLocked(Boolean(userBid.commitment_fee_paid))
-        }
-      }
-    }
-
-    // 4. Load Confirmed Deals for this config (for leaderboard)
-    const { data: dealsData } = await supabase
-      .from('deals')
-      .select('id, final_price, status, created_at')
-      .eq('car_configuration_id', configId)
-      .order('final_price', { ascending: true })
-    
-    if (dealsData) {
-      setConfirmedDeals(dealsData as any)
-    }
-
+    setBids((bidResult.data || []) as Bid[])
+    setConfirmedDeals((dealResult.data || []) as ConfirmedDeal[])
     setIsLoading(false)
-  }
+  }, [listingId, router])
 
-  useEffect(() => {
-    if (configId) {
-      loadData()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configId])
-
-  // Watch for payment status in query
+  useEffect(() => { loadData() }, [loadData])
   useEffect(() => {
     const status = searchParams?.get('pay') as 'success' | 'failed' | 'error' | null
-    if (status) {
-      setPayStatus(status)
-      setShowPayResult(true)
-    }
+    if (status) { setPayStatus(status); setShowPayResult(true) }
   }, [searchParams])
 
   const closePayResult = () => {
@@ -180,296 +70,47 @@ function CarDetailContent() {
     setPayStatus(null)
     const url = new URL(window.location.href)
     url.searchParams.delete('pay')
-    router.replace(url.pathname + url.search)
-    loadData()
+    router.replace(`${url.pathname}${url.search}`)
   }
+  const userBid = useMemo(() => bids.find((bid) => bid.buyer_id === currentUser?.id), [bids, currentUser?.id])
 
-  const handleBidPlaced = (bidPrice: number) => {
-    setCurrentUserBid(bidPrice)
-  }
+  if (isLoading) return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">جاري تحميل السيارة...</div>
+  if (!listing) return <div className="flex min-h-[60vh] items-center justify-center bg-gray-50 px-4"><div className="text-center"><h1 className="mb-4 text-2xl font-bold">السيارة غير موجودة أو غير متاحة</h1><Button asChild><Link href="/cars">العودة إلى السوق</Link></Button></div></div>
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8">
-          <div className="container mx-auto space-y-6 animate-pulse">
-            <div className="h-8 bg-gray-200 w-1/4 rounded"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-               <div className="col-span-2 h-96 bg-gray-200 rounded"></div>
-               <div className="h-96 bg-gray-200 rounded"></div>
-            </div>
-          </div>
-      </div>
-    )
-  }
-
-  if (!config) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">السيارة غير موجودة</h1>
-          <Link href="/cars">
-            <Button>العودة للسيارات</Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  const totalQuantity = inventory.reduce((sum, item) => sum + item.quantity, 0)
-  const dealerCount = inventory.length
-  const title = vehicleTitle(config)
-  const trimLabel = localizeVehicleText(config.trim) || 'مواصفات وكالة'
-  const originLabel = localizeVehicleText(config.origin_locale) || 'غير محدد'
-  
-  const images = listingImages.length > 0 ? listingImages : config.images || []
-  const hasUploadedImages = images.length > 0
-  const buyerDisplayPrice = displayPrice || config.msrp
+  const title = vehicleTitle(listing)
+  const images = listing.images || []
+  const colorByConfiguration = new Map(listing.colors.map((color) => [color.configuration_id, color.color]))
 
   return (
     <div className="min-h-screen bg-gray-50 text-right" dir="rtl">
       <div className="container mx-auto px-4 py-8">
-        <Link href="/cars" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
-          <ArrowRight className="h-4 w-4" />
-          العودة للسوق
-        </Link>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Main Content (Right) */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Title & Stats */}
-            <div>
-               <div className="flex items-center gap-3 mb-2">
-                 <h1 className="text-3xl font-bold text-gray-900">
-                   {title}
-                 </h1>
-                 <Badge variant="outline" className="text-sm">
-                    {trimLabel}
-                 </Badge>
-                 <Badge variant="secondary" className="text-sm">
-                    {originLabel}
-                 </Badge>
-               </div>
-               <div className="flex items-center gap-4 text-gray-600">
-                  <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-none">
-                     متاح {totalQuantity} سيارة
-                  </Badge>
-                  <span className="text-sm">لدى {dealerCount} وكلاء</span>
-               </div>
-            </div>
-
-            {/* Image Gallery */}
+        <Link href="/cars" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"><ArrowRight className="h-4 w-4" />العودة للسوق</Link>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <main className="space-y-6 lg:col-span-2">
+            <div><div className="mb-2 flex flex-wrap items-center gap-3"><h1 className="text-3xl font-bold text-gray-900">{title}</h1><Badge variant="outline">{localizeVehicleText(listing.trim)}</Badge><Badge variant="secondary">{localizeVehicleText(listing.origin_locale)}</Badge></div><Badge className="border-0 bg-green-100 text-green-800 hover:bg-green-100">متاح {listing.available_quantity} سيارة</Badge></div>
             <Card className="overflow-hidden border-0 shadow-lg">
-               <div className="relative h-[400px] w-full bg-gray-100">
-                  {hasUploadedImages ? (
-                    <Image
-                      src={images[selectedImageIndex]}
-                      alt={title}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <CarMediaPlaceholder config={config} variant="detail" />
-                  )}
-               </div>
-               {hasUploadedImages && images.length > 1 && (
-                 <div className="flex gap-2 p-4 overflow-x-auto">
-                    {images.map((img, idx) => (
-                       <button 
-                         key={idx}
-                         onClick={() => setSelectedImageIndex(idx)}
-                         className={`relative w-20 h-14 rounded-md overflow-hidden border-2 transition-all ${
-                             selectedImageIndex === idx ? 'border-primary' : 'border-transparent opacity-70 hover:opacity-100'
-                         }`}
-                       >
-                         <Image src={img} alt="صورة مصغرة" fill className="object-cover" />
-                       </button>
-                    ))}
-                 </div>
-               )}
+              <div className="relative h-[400px] w-full bg-gray-100">{images[selectedImageIndex] ? <Image src={images[selectedImageIndex]} alt={title} fill sizes="(min-width: 1024px) 66vw, 100vw" className="object-cover" /> : <CarMediaPlaceholder config={listing} variant="detail" />}</div>
+              {images.length > 1 && <div className="flex gap-2 overflow-x-auto p-4">{images.map((image, index) => <button key={image} type="button" onClick={() => setSelectedImageIndex(index)} className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border-2 ${selectedImageIndex === index ? 'border-primary' : 'border-transparent opacity-70'}`} aria-label={`عرض الصورة ${index + 1}`}><Image src={image} alt="" fill sizes="80px" className="object-cover" /></button>)}</div>}
             </Card>
-
-            {/* Specifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-gray-500" />
-                  المواصفات
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-                   <div className="space-y-1">
-                      <span className="text-xs text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> السنة</span>
-                      <p className="font-medium">{config.year}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <span className="text-xs text-gray-500 flex items-center gap-1"><Gauge className="w-3 h-3"/> المحرك</span>
-                      <p className="font-medium">{localizeVehicleText(config.specifications?.engine) || '-'}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <span className="text-xs text-gray-500 flex items-center gap-1"><Fuel className="w-3 h-3"/> الوقود</span>
-                      <p className="font-medium">{localizeVehicleText(config.specifications?.fuel_type) || 'بنزين'}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <span className="text-xs text-gray-500 flex items-center gap-1"><Settings className="w-3 h-3"/> القير</span>
-                      <p className="font-medium">{localizeVehicleText(config.specifications?.transmission) || 'أوتوماتيك'}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <span className="text-xs text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/> المنشأ</span>
-                      <p className="font-medium">{originLabel}</p>
-                   </div>
-                </div>
-                {(listingDescription || config.description) && (
-                   <>
-                     <Separator className="my-4" />
-                     <p className="text-gray-600 leading-relaxed">{listingDescription || config.description}</p>
-                   </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Availability Info - No dealer names shown */}
-            <Card>
-               <CardHeader>
-                 <CardTitle className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-gray-500" />
-                    التوفر
-                 </CardTitle>
-               </CardHeader>
-               <CardContent>
-                  <div className="text-center py-4">
-                     <div className="text-3xl font-bold text-green-600">{totalQuantity}</div>
-                     <div className="text-sm text-gray-500">سيارة متاحة من {dealerCount} تاجر</div>
-                     <p className="text-xs text-gray-400 mt-2">
-                        ستظهر معلومات التاجر بعد قبول عرضك
-                     </p>
-                  </div>
-               </CardContent>
-            </Card>
-
-          </div>
-
-          {/* Sidebar (Left) */}
-          <div className="space-y-6">
-            
-            {/* Bid Input Card */}
-            <BidInput
-               configId={config.id}
-               msrp={buyerDisplayPrice}
-               currentUserBid={currentUserBid}
-               userId={currentUser?.id}
-               locked={isBidLocked}
-               onBidPlaced={handleBidPlaced}
-               // Note: We could aggregate price_slots from inventory if needed
-               priceSlots={[]} 
-            />
-
-            {/* Recent Activity / Stats */}
-            <Card>
-               <CardHeader>
-                  <CardTitle className="text-sm text-gray-500 uppercase tracking-wider">نشاط العروض</CardTitle>
-               </CardHeader>
-               <CardContent>
-                  <div className="text-center py-2">
-                     <div className="text-3xl font-bold text-gray-900">{bids.length}</div>
-                     <div className="text-sm text-gray-500">عرض مقدم حتى الآن</div>
-                  </div>
-               </CardContent>
-            </Card>
-
-            {/* Leaderboard 1: Top Confirmed Sales (Lowest Price) */}
-            <Card>
-               <CardHeader>
-                  <CardTitle className="text-sm text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                     <TrendingUp className="w-4 h-4" />
-                     أفضل الصفقات المؤكدة
-                  </CardTitle>
-               </CardHeader>
-               <CardContent>
-                  {confirmedDeals.length === 0 ? (
-                     <div className="text-center text-gray-400 text-sm py-4">لا توجد صفقات مؤكدة بعد</div>
-                  ) : (
-                     <div className="space-y-2">
-                        {confirmedDeals.slice(0, 5).map((deal, idx) => (
-                           <div key={deal.id} className="flex justify-between items-center text-sm p-2 bg-green-50 rounded-md">
-                              <span className="text-gray-600 flex items-center gap-2">
-                                 <span className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                                 صفقة مؤكدة
-                              </span>
-                              <span className="font-bold text-green-700">{formatCurrencySar(deal.final_price)}</span>
-                           </div>
-                        ))}
-                     </div>
-                  )}
-               </CardContent>
-            </Card>
-
-            {/* Leaderboard 2: All Buyer Offers */}
-            <Card>
-               <CardHeader>
-                  <CardTitle className="text-sm text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                     <Users className="w-4 h-4" />
-                     جميع العروض المقدمة
-                  </CardTitle>
-               </CardHeader>
-               <CardContent>
-                  {bids.length === 0 ? (
-                     <div className="text-center text-gray-400 text-sm py-4">كن أول من يقدم عرضاً!</div>
-                  ) : (
-                     <div className="space-y-2">
-                        {bids.slice(0, 10).map((bid, idx) => (
-                           <div key={bid.id} className={`flex justify-between items-center text-sm p-2 rounded-md ${
-                              bid.status === 'accepted' ? 'bg-green-50' : bid.status === 'pending' && bid.commitment_fee_paid ? 'bg-blue-50' : 'bg-gray-50'
-                           }`}>
-                              <span className="text-gray-600 flex items-center gap-2">
-                                 <span className="w-5 h-5 bg-gray-400 text-white rounded-full flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                                 {bid.buyer_id === currentUser?.id ? 'أنت' : 'مزايد'}
-                                 {bid.status === 'accepted' && <Badge className="text-xs bg-green-100 text-green-700">مقبول</Badge>}
-                                 {bid.status === 'pending' && bid.commitment_fee_paid && <Badge className="text-xs bg-blue-100 text-blue-700">مؤكد</Badge>}
-                              </span>
-                              <span className="font-medium">{formatCurrencySar(bid.bid_price)}</span>
-                           </div>
-                        ))}
-                     </div>
-                  )}
-               </CardContent>
-            </Card>
-
-          </div>
-
+            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" />الألوان المتاحة</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{listing.colors.map((color) => <div key={color.configuration_id} className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3"><span className="font-semibold">{localizeVehicleText(color.color)}</span><Badge variant="outline">{color.available_quantity} متاح</Badge></div>)}</CardContent></Card>
+            <Card><CardHeader><CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />المواصفات</CardTitle></CardHeader><CardContent><div className="grid grid-cols-2 gap-4 md:grid-cols-4"><Spec icon={Calendar} label="سنة الصنع" value={listing.year} /><Spec icon={Gauge} label="الطراز / اسم الموديل" value={localizeVehicleText(listing.model)} /><Spec icon={Settings} label="مستوى التجهيز" value={localizeVehicleText(listing.variant)} /><Spec icon={MapPin} label="المنشأ" value={localizeVehicleText(listing.origin_locale)} /></div>{listing.description && <><Separator className="my-4" /><p className="leading-7 text-gray-600">{listing.description}</p></>}</CardContent></Card>
+          </main>
+          <aside className="space-y-6">
+            <BidInput configId={userBid?.car_configuration_id || ''} listingId={listing.id} colors={listing.colors} msrp={listing.display_price} currentUserBid={userBid?.bid_price} userId={currentUser?.id} locked={Boolean(userBid?.commitment_fee_paid)} onBidPlaced={() => loadData()} priceSlots={[]} />
+            <Card><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-gray-500"><Users className="h-4 w-4" />العروض المقدمة</CardTitle></CardHeader><CardContent className="space-y-2">{bids.length === 0 ? <p className="py-4 text-center text-sm text-gray-400">كن أول من يقدم عرضاً</p> : bids.slice(0, 10).map((bid, index) => <div key={bid.id} className="flex items-center justify-between rounded-md bg-gray-50 p-2 text-sm"><span>{index + 1}. {localizeVehicleText(colorByConfiguration.get(bid.car_configuration_id || ''))}</span><span className="font-semibold">{formatCurrencySar(bid.bid_price)}</span></div>)}</CardContent></Card>
+            <Card><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-gray-500"><TrendingUp className="h-4 w-4" />أفضل الصفقات المؤكدة</CardTitle></CardHeader><CardContent>{confirmedDeals.length === 0 ? <p className="py-4 text-center text-sm text-gray-400">لا توجد صفقات مؤكدة بعد</p> : confirmedDeals.slice(0, 5).map((deal) => <div key={deal.id} className="mb-2 flex justify-between rounded-md bg-green-50 p-2 text-sm"><span>صفقة مؤكدة</span><span className="font-bold text-green-700">{formatCurrencySar(deal.final_price)}</span></div>)}</CardContent></Card>
+          </aside>
         </div>
       </div>
-
-      {/* Payment Result Dialog */}
-      <Dialog open={showPayResult} onOpenChange={(o)=>{ if(!o) closePayResult() }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {payStatus === 'success' ? 'تم الدفع بنجاح' : payStatus === 'failed' ? 'فشل الدفع' : 'حدث خطأ'}
-            </DialogTitle>
-            <DialogDescription>
-              {payStatus === 'success'
-                ? 'تم تأكيد عرضك بنجاح. سيتم إشعار الوكلاء فوراً.'
-                : payStatus === 'failed'
-                ? 'تعذر إتمام عملية الدفع. يرجى المحاولة مرة أخرى.'
-                : 'حدث خطأ أثناء التحقق من عملية الدفع.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="pt-2">
-            <button onClick={closePayResult} className="w-full rounded-md bg-primary px-4 py-2 text-white hover:bg-primary/90">حسناً</button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Dialog open={showPayResult} onOpenChange={(open) => { if (!open) closePayResult() }}><DialogContent className="max-w-md" dir="rtl"><DialogHeader><DialogTitle>{payStatus === 'success' ? 'تم الدفع بنجاح' : payStatus === 'failed' ? 'فشل الدفع' : 'حدث خطأ'}</DialogTitle><DialogDescription>{payStatus === 'success' ? 'تم تأكيد عرضك بنجاح.' : payStatus === 'failed' ? 'تعذر إتمام عملية الدفع. يرجى المحاولة مرة أخرى.' : 'حدث خطأ أثناء التحقق من عملية الدفع.'}</DialogDescription></DialogHeader><Button onClick={closePayResult}>حسناً</Button></DialogContent></Dialog>
     </div>
   )
 }
 
+function Spec({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string | number }) {
+  return <div className="rounded-xl border bg-muted/20 p-3"><span className="flex items-center gap-1 text-xs text-gray-500"><Icon className="h-3.5 w-3.5" />{label}</span><p className="mt-1 font-semibold">{value || '-'}</p></div>
+}
+
 export default function CarDetailPage() {
-  return (
-    <Suspense fallback={null}>
-      <CarDetailContent />
-    </Suspense>
-  )
+  return <Suspense fallback={null}><CarDetailContent /></Suspense>
 }

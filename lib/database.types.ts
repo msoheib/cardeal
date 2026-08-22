@@ -148,6 +148,7 @@ export type Database = {
           description: string | null
           id: string
           images: string[] | null
+          listing_spec_id: string
           make: string
           model: string
           msrp: number
@@ -164,6 +165,7 @@ export type Database = {
           description?: string | null
           id?: string
           images?: string[] | null
+          listing_spec_id: string
           make: string
           model: string
           msrp: number
@@ -180,6 +182,7 @@ export type Database = {
           description?: string | null
           id?: string
           images?: string[] | null
+          listing_spec_id?: string
           make?: string
           model?: string
           msrp?: number
@@ -190,7 +193,15 @@ export type Database = {
           variant?: string | null
           year?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "car_configurations_listing_spec_id_fkey"
+            columns: ["listing_spec_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_listing_specs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cars: {
         Row: {
@@ -332,6 +343,7 @@ export type Database = {
           car_configuration_id: string | null
           created_at: string | null
           dealer_id: string | null
+          dealer_listing_id: string
           id: string
           listing_description: string | null
           listing_images: string[]
@@ -345,6 +357,7 @@ export type Database = {
           car_configuration_id?: string | null
           created_at?: string | null
           dealer_id?: string | null
+          dealer_listing_id: string
           id?: string
           listing_description?: string | null
           listing_images?: string[]
@@ -358,6 +371,7 @@ export type Database = {
           car_configuration_id?: string | null
           created_at?: string | null
           dealer_id?: string | null
+          dealer_listing_id?: string
           id?: string
           listing_description?: string | null
           listing_images?: string[]
@@ -367,6 +381,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "dealer_inventory_dealer_listing_id_fkey"
+            columns: ["dealer_listing_id"]
+            isOneToOne: false
+            referencedRelation: "dealer_listings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dealer_inventory_car_configuration_id_fkey"
             columns: ["car_configuration_id"]
@@ -379,6 +400,57 @@ export type Database = {
             columns: ["dealer_id"]
             isOneToOne: false
             referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealer_listings: {
+        Row: {
+          agency_price: number
+          created_at: string
+          dealer_id: string
+          id: string
+          listing_description: string | null
+          listing_images: string[]
+          listing_spec_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agency_price: number
+          created_at?: string
+          dealer_id: string
+          id?: string
+          listing_description?: string | null
+          listing_images?: string[]
+          listing_spec_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_price?: number
+          created_at?: string
+          dealer_id?: string
+          id?: string
+          listing_description?: string | null
+          listing_images?: string[]
+          listing_spec_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_listings_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_listings_listing_spec_id_fkey"
+            columns: ["listing_spec_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_listing_specs"
             referencedColumns: ["id"]
           },
         ]
@@ -686,11 +758,51 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_listing_specs: {
+        Row: {
+          created_at: string
+          id: string
+          make: string
+          model: string
+          origin_locale: string
+          trim: string
+          updated_at: string
+          variant: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          make: string
+          model: string
+          origin_locale: string
+          trim: string
+          updated_at?: string
+          variant: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          make?: string
+          model?: string
+          origin_locale?: string
+          trim?: string
+          updated_at?: string
+          variant?: string
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      archive_dealer_listing: {
+        Args: { p_listing_id: string }
+        Returns: Json
+      }
       archive_dealer_inventory_listing: {
         Args: { p_inventory_id: string }
         Returns: Json
@@ -748,6 +860,26 @@ export type Database = {
         Args: { p_inventory_id: string }
         Returns: Json
       }
+      restore_dealer_listing: {
+        Args: { p_listing_id: string }
+        Returns: Json
+      }
+      save_dealer_listing: {
+        Args: {
+          p_agency_price: number
+          p_colors: Json
+          p_description: string | null
+          p_images: string[]
+          p_listing_id: string | null
+          p_make: string
+          p_model: string
+          p_origin_locale: string
+          p_trim: string
+          p_variant: string
+          p_year: number
+        }
+        Returns: Json
+      }
       save_dealer_inventory_listing: {
         Args: {
           p_agency_price: number
@@ -792,6 +924,34 @@ export type Database = {
           trim: string | null
           updated_at: string | null
           variant: string | null
+          year: number
+        }[]
+      }
+      search_available_vehicle_listings: {
+        Args: {
+          p_listing_id?: string | null
+          p_make?: string | null
+          p_origin_locale?: string | null
+          p_price_from?: number | null
+          p_price_to?: number | null
+          p_search?: string | null
+          p_year_from?: number | null
+          p_year_to?: number | null
+        }
+        Returns: {
+          available_quantity: number
+          colors: Json
+          created_at: string
+          description: string | null
+          display_price: number
+          id: string
+          make: string
+          model: string
+          origin_locale: string
+          representative_images: string[]
+          trim: string
+          updated_at: string
+          variant: string
           year: number
         }[]
       }

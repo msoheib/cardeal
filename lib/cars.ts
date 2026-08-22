@@ -1,20 +1,18 @@
 import {
   supabase,
-  AvailableCarConfiguration,
-  DealerInventoryListing,
+  AvailableVehicleListing,
+  DealerListing,
   DealerVehicleFormValue,
   VehicleMake,
   VehicleModel,
 } from './supabase'
 import { vehicleSearchTerms } from './arabic-display'
 
-const searchableConfigFields = ['make', 'model', 'trim', 'color', 'origin_locale']
-
 function sanitizeSearchTerm(term: string) {
   return term.replace(/[\\%,()|]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-// BUYER: Get generic configurations that are available (have inventory)
+// BUYER: Get color-neutral vehicle listings that have available dealer stock.
 export const getAvailableConfigurations = async (filters: {
   make?: string
   model?: string
@@ -32,9 +30,7 @@ export const getAvailableConfigurations = async (filters: {
         .slice(0, 12)
     : []
 
-  // The RPC aggregates dealer-owned price, stock, and images while keeping
-  // dealer-specific rows out of the buyer response.
-  const { data, error } = await supabase.rpc('search_available_configurations', {
+  const { data, error } = await supabase.rpc('search_available_vehicle_listings', {
     p_make: filters.make || null,
     p_origin_locale: filters.origin_locale || null,
     p_year_from: filters.yearFrom || null,
@@ -42,132 +38,69 @@ export const getAvailableConfigurations = async (filters: {
     p_price_from: filters.priceFrom || null,
     p_price_to: filters.priceTo || null,
     p_search: terms.join('|') || null,
+    p_listing_id: null,
   })
 
-  if (!error) {
-    return {
-      data: ((data || []) as AvailableCarConfiguration[]).map((config) => ({
-        ...config,
-        images: config.representative_images?.length
-          ? config.representative_images
-          : config.images || [],
-      })),
-      error: null,
-    }
+  if (error) {
+    console.error('vehicle_listing_search_failed', { code: error.code, message: error.message })
+    return { data: [] as AvailableVehicleListing[], error }
   }
 
-  // Migration-window fallback for environments where the RPC has not been
-  // deployed yet. It still filters out hidden and out-of-stock inventory.
-  const buildLegacyQuery = (inventoryFields: string) => supabase
-    .from('car_configurations')
-    .select(`*, inventory:dealer_inventory(${inventoryFields})`)
-
-  let legacyQuery = buildLegacyQuery('agency_price, listing_images, quantity, status')
-
-  if (filters.make) legacyQuery = legacyQuery.eq('make', filters.make)
-  if (filters.model) legacyQuery = legacyQuery.eq('model', filters.model)
-  if (filters.origin_locale) legacyQuery = legacyQuery.eq('origin_locale', filters.origin_locale)
-  if (filters.yearFrom) legacyQuery = legacyQuery.gte('year', filters.yearFrom)
-  if (filters.yearTo) legacyQuery = legacyQuery.lte('year', filters.yearTo)
-
-  if (terms.length > 0) {
-    legacyQuery = legacyQuery.or(
-      terms
-        .flatMap(term => searchableConfigFields.map(field => `${field}.ilike.%${term}%`))
-        .join(','),
-    )
+  return {
+    data: ((data || []) as AvailableVehicleListing[]).map((listing) => ({
+      ...listing,
+      colors: listing.colors || [],
+      images: listing.representative_images || [],
+    })),
+    error: null,
   }
-
-  let { data: legacyData, error: legacyError } = await legacyQuery.order('created_at', { ascending: false })
-  if (legacyError && /agency_price|listing_images|column.*does not exist|schema cache/i.test(legacyError.message || '')) {
-    legacyQuery = buildLegacyQuery('quantity, status')
-    if (filters.make) legacyQuery = legacyQuery.eq('make', filters.make)
-    if (filters.model) legacyQuery = legacyQuery.eq('model', filters.model)
-    if (filters.origin_locale) legacyQuery = legacyQuery.eq('origin_locale', filters.origin_locale)
-    if (filters.yearFrom) legacyQuery = legacyQuery.gte('year', filters.yearFrom)
-    if (filters.yearTo) legacyQuery = legacyQuery.lte('year', filters.yearTo)
-    if (terms.length > 0) {
-      legacyQuery = legacyQuery.or(
-        terms
-          .flatMap(term => searchableConfigFields.map(field => `${field}.ilike.%${term}%`))
-          .join(','),
-      )
-    }
-    const fallback = await legacyQuery.order('created_at', { ascending: false })
-    legacyData = fallback.data
-    legacyError = fallback.error
-  }
-  if (legacyError) return { data: [], error }
-
-  const availableConfigs = (legacyData || [])
-    .map((config: any) => {
-      const inventory = (config.inventory || []).filter(
-        (item: any) => item.status === 'active' && item.quantity > 0,
-      )
-      const displayPrice = inventory.length
-        ? Math.min(...inventory.map((item: any) => item.agency_price || config.msrp))
-        : config.msrp
-      const listingImages = inventory.find((item: any) => item.listing_images?.length)?.listing_images
-      return {
-        ...config,
-        display_price: displayPrice,
-        available_quantity: inventory.reduce((sum: number, item: any) => sum + item.quantity, 0),
-        representative_images: listingImages || config.images || [],
-        images: listingImages || config.images || [],
-      }
-    })
-    .filter((config: any) => config.available_quantity > 0)
-    .filter((config: any) => !filters.priceFrom || config.display_price >= filters.priceFrom)
-    .filter((config: any) => !filters.priceTo || config.display_price <= filters.priceTo)
-
-  return { data: availableConfigs as AvailableCarConfiguration[], error: null }
 }
 
-// DEALER: Get their specific inventory
+// DEALER: Get logical listings with their per-color inventory rows.
 export const getDealerInventory = async (dealerId: string) => {
   const { data, error } = await supabase
-    .from('dealer_inventory')
+    .from('dealer_listings')
     .select(`
       *,
-      configuration:car_configurations(*)
+      specification:vehicle_listing_specs(*),
+      inventory:dealer_inventory(*, configuration:car_configurations(*))
     `)
     .eq('dealer_id', dealerId)
     .order('created_at', { ascending: false })
 
-  return { data: (data || []) as DealerInventoryListing[], error }
+  return { data: (data || []) as DealerListing[], error }
 }
 
-export const getDealerInventoryItem = async (inventoryId: string) => {
+export const getDealerInventoryItem = async (listingId: string) => {
   const { data, error } = await supabase
-    .from('dealer_inventory')
-    .select(`*, configuration:car_configurations(*)`)
-    .eq('id', inventoryId)
+    .from('dealer_listings')
+    .select(`*, specification:vehicle_listing_specs(*), inventory:dealer_inventory(*, configuration:car_configurations(*))`)
+    .eq('id', listingId)
     .single()
 
-  return { data: data as DealerInventoryListing | null, error }
+  return { data: data as DealerListing | null, error }
 }
 
 type DealerInventorySaveInput = DealerVehicleFormValue & { inventoryId?: string | null }
 
 export const saveDealerInventoryListing = async (input: DealerInventorySaveInput) => {
-  const { data, error } = await supabase.rpc('save_dealer_inventory_listing', {
-    p_inventory_id: input.inventoryId || null,
+  const { data, error } = await supabase.rpc('save_dealer_listing', {
+    p_listing_id: input.inventoryId || null,
     p_make: input.make,
     p_model: input.model,
     p_year: input.year,
     p_trim: input.trim,
-    p_color: input.color,
     p_origin_locale: input.origin_locale,
     p_variant: input.variant,
     p_agency_price: input.agencyPrice,
-    p_quantity: input.quantity,
+    p_colors: input.colors,
     p_description: input.description || null,
     p_images: input.images || [],
   })
 
   if (error) return { data: null, error, status: 'error' as const }
 
-  const result = (data || {}) as { success?: boolean; error?: string; status?: string; inventory_id?: string }
+  const result = (data || {}) as { success?: boolean; error?: string; status?: string; listing_id?: string }
   if (!result.success) {
     return {
       data: null,
@@ -179,9 +112,9 @@ export const saveDealerInventoryListing = async (input: DealerInventorySaveInput
   return { data: result, error: null, status: input.inventoryId ? 'updated' as const : 'created' as const }
 }
 
-export const archiveDealerInventoryListing = async (inventoryId: string) => {
-  const { data, error } = await supabase.rpc('archive_dealer_inventory_listing', {
-    p_inventory_id: inventoryId,
+export const archiveDealerInventoryListing = async (listingId: string) => {
+  const { data, error } = await supabase.rpc('archive_dealer_listing', {
+    p_listing_id: listingId,
   })
   if (error) return { data: null, error }
   const result = (data || {}) as { success?: boolean; error?: string }
@@ -190,15 +123,57 @@ export const archiveDealerInventoryListing = async (inventoryId: string) => {
     : { data: null, error: { message: result.error || 'تعذر إخفاء الإعلان.' } }
 }
 
-export const restoreDealerInventoryListing = async (inventoryId: string) => {
-  const { data, error } = await supabase.rpc('restore_dealer_inventory_listing', {
-    p_inventory_id: inventoryId,
+export const restoreDealerInventoryListing = async (listingId: string) => {
+  const { data, error } = await supabase.rpc('restore_dealer_listing', {
+    p_listing_id: listingId,
   })
   if (error) return { data: null, error }
   const result = (data || {}) as { success?: boolean; error?: string }
   return result.success
     ? { data: result, error: null }
     : { data: null, error: { message: result.error || 'تعذر استعادة الإعلان.' } }
+}
+
+export const getAvailableListingById = async (id: string) => {
+  const searchById = async (listingSpecId: string) => {
+    const { data, error } = await supabase.rpc('search_available_vehicle_listings', {
+      p_listing_id: listingSpecId,
+      p_make: null,
+      p_origin_locale: null,
+      p_year_from: null,
+      p_year_to: null,
+      p_price_from: null,
+      p_price_to: null,
+      p_search: null,
+    })
+    return { data: ((data || []) as AvailableVehicleListing[])[0] || null, error }
+  }
+
+  const direct = await searchById(id)
+  if (direct.error) return { data: null, error: direct.error, canonicalId: null as string | null }
+  if (direct.data) return { data: { ...direct.data, images: direct.data.representative_images || [], colors: direct.data.colors || [] }, error: null, canonicalId: direct.data.id }
+
+  const { data: legacyConfiguration, error: legacyError } = await supabase
+    .from('car_configurations')
+    .select('listing_spec_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (legacyError) return { data: null, error: legacyError, canonicalId: null as string | null }
+
+  const canonicalId = legacyConfiguration?.listing_spec_id || null
+  if (!canonicalId) return { data: null, error: null, canonicalId: null }
+  const canonical = await searchById(canonicalId)
+  return { data: canonical.data ? { ...canonical.data, images: canonical.data.representative_images || [], colors: canonical.data.colors || [] } : null, error: canonical.error, canonicalId }
+}
+
+export const getListingBids = async (configurationIds: string[]) => {
+  if (configurationIds.length === 0) return { data: [], error: null }
+  const { data, error } = await supabase
+    .from('bids')
+    .select('*')
+    .in('car_configuration_id', configurationIds)
+    .order('created_at', { ascending: false })
+  return { data: data || [], error }
 }
 
 // SHARED: Get single config details
@@ -257,13 +232,12 @@ export const addToInventory = async (params: {
     model: params.model,
     year: params.year,
     trim: params.trim || '',
-    color: params.color || '',
     origin_locale: params.origin_locale || '',
     variant: params.variant || '',
     agencyPrice: params.msrp,
     description: params.description || '',
     images: params.images || [],
-    quantity: params.quantity,
+    colors: [{ color: params.color || '', quantity: params.quantity }],
   })
 }
 
@@ -369,9 +343,13 @@ export const getDealerOpportunities = async (dealerId: string) => {
   if (!inventory || inventory.length === 0) return { data: [], error: null }
 
   // Filter for active inventory only
-  const activeConfigIds = inventory
-    .filter((item: any) => item.status === 'active' && item.quantity > 0)
-    .map((item: any) => item.car_configuration_id)
+  const activeConfigIds = Array.from(new Set(
+    inventory
+      .filter((listing) => listing.status === 'active')
+      .flatMap((listing) => listing.inventory)
+      .filter((item) => item.status === 'active' && item.quantity > 0)
+      .map((item) => item.car_configuration_id),
+  ))
 
   if (activeConfigIds.length === 0) return { data: [], error: null }
 

@@ -209,6 +209,9 @@ function splitName(value) {
 
   const left = cleanText(pair[1])
   const inside = cleanText(pair[2])
+  if (/^موديلات\s*[:：]/.test(inside)) {
+    return { name_ar: left, name_en: left }
+  }
   const leftArabic = ARABIC_RE.test(left)
   const insideArabic = ARABIC_RE.test(inside)
 

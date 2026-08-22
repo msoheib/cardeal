@@ -9,6 +9,7 @@ interface MoyasarCheckoutProps {
   description: string
   bidId: string
   carId: string
+  listingId: string
 }
 
 declare global {
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-export default function MoyasarCheckout({ amountHalalas, description, bidId, carId }: MoyasarCheckoutProps) {
+export default function MoyasarCheckout({ amountHalalas, description, bidId, carId, listingId }: MoyasarCheckoutProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -79,7 +80,7 @@ export default function MoyasarCheckout({ amountHalalas, description, bidId, car
       const origin = window.location.origin
       const callback = `${origin}/api/moyasar/verify?bid_id=${encodeURIComponent(
         bidId
-      )}&car_id=${encodeURIComponent(carId)}`
+      )}&car_id=${encodeURIComponent(carId)}&listing_id=${encodeURIComponent(listingId)}`
 
       window.Moyasar.init({
         element: `.${formClass}`,
@@ -89,6 +90,7 @@ export default function MoyasarCheckout({ amountHalalas, description, bidId, car
         metadata: {
           bid_id: bidId,
           car_configuration_id: carId,
+          listing_spec_id: listingId,
           fee: 'commitment_fee'
         },
         publishable_api_key: publishableKey,
@@ -106,7 +108,7 @@ export default function MoyasarCheckout({ amountHalalas, description, bidId, car
     return () => {
       hostRef.current?.replaceChildren()
     }
-  }, [ready, amountHalalas, description, bidId, carId, publishableKey])
+  }, [ready, amountHalalas, description, bidId, carId, listingId, publishableKey])
 
   if (error) {
     return (

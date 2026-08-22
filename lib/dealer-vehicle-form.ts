@@ -4,16 +4,34 @@ import { DealerVehicleFormValue, VehicleMake, VehicleModel } from './supabase'
 export const CUSTOM_TRIM_VALUE = '__custom_trim__'
 export const CUSTOM_COLOR_VALUE = '__custom_color__'
 
+const isValidCatalogValue = (value: string) => !/^موديلات\s*[:：]/i.test(value.trim())
+
 export const dealerVehicleSchema = z.object({
-  make: z.string().trim().min(1, 'الماركة مطلوبة').max(120),
-  model: z.string().trim().min(1, 'الموديل مطلوب').max(120),
+  make: z.string().trim().min(1, 'الماركة مطلوبة').max(120).refine(isValidCatalogValue, 'اسم الماركة غير صالح'),
+  model: z.string().trim().min(1, 'الطراز / اسم الموديل مطلوب').max(120).refine(isValidCatalogValue, 'اسم الطراز غير صالح'),
   year: z.number().int().min(1900).max(2100),
   trim: z.string().trim().min(1, 'الفئة مطلوبة').max(120),
-  color: z.string().trim().min(1, 'اللون مطلوب').max(120),
   origin_locale: z.string().trim().min(1, 'المنشأ مطلوب').max(80),
   variant: z.string().trim().min(1, 'مستوى التجهيز مطلوب').max(80),
   agencyPrice: z.number().finite().positive().max(9_999_999_999),
-  quantity: z.number().int().positive().max(100_000),
+  colors: z.array(z.object({
+    color: z.string().trim().min(1, 'اسم اللون مطلوب').max(120),
+    quantity: z.number().int('كمية اللون يجب أن تكون عدداً صحيحاً').positive('كمية اللون يجب أن تكون أكبر من صفر').max(100_000),
+  })).min(1, 'أضف لوناً واحداً على الأقل').max(50).superRefine((rows, context) => {
+    const seen = new Set<string>()
+    let total = 0
+    rows.forEach((row, index) => {
+      const key = normalizeVehicleText(row.color).toLocaleLowerCase('ar')
+      if (seen.has(key)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: 'لا يمكن تكرار اللون نفسه', path: [index, 'color'] })
+      }
+      seen.add(key)
+      total += row.quantity
+    })
+    if (total > 100_000) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'إجمالي الكمية يتجاوز الحد المسموح', path: [] })
+    }
+  }),
   description: z.string().max(5_000),
   images: z.array(z.string().max(4_096)).max(5),
 })
@@ -23,11 +41,10 @@ export const dealerVehicleFormDefaults: DealerVehicleFormValue = {
   model: '',
   year: new Date().getFullYear(),
   trim: '',
-  color: '',
   origin_locale: '',
   variant: 'ستاندر',
   agencyPrice: 0,
-  quantity: 1,
+  colors: [{ color: '', quantity: 1 }],
   description: '',
   images: [],
 }
@@ -102,7 +119,10 @@ export function normalizeDealerVehicleValue(value: DealerVehicleFormValue): Deal
     make: normalizeVehicleText(value.make),
     model: normalizeVehicleText(value.model),
     trim: normalizeVehicleText(value.trim),
-    color: normalizeVehicleText(value.color),
+    colors: value.colors.map((row) => ({
+      color: normalizeVehicleText(row.color),
+      quantity: row.quantity,
+    })),
     origin_locale: normalizeVehicleText(value.origin_locale),
     variant: normalizeVehicleText(value.variant),
     description: value.description.trim(),

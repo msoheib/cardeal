@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { DollarSign, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
+import { DollarSign, AlertTriangle, CheckCircle, Loader2, Palette } from 'lucide-react'
 import { placeBid } from '@/lib/cars'
 import { toArabicError } from '@/lib/arabic-errors'
 import { formatCurrencySar } from '@/lib/format'
@@ -15,9 +15,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import MoyasarCheckout from '@/components/moyasar-checkout'
 import { useToast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
+import { AvailableColorStock } from '@/lib/supabase'
+import { localizeVehicleText } from '@/lib/arabic-display'
 
 interface BidInputProps {
   configId: string
+  listingId: string
+  colors: AvailableColorStock[]
   msrp: number
   currentUserBid?: number
   onBidPlaced?: (bidPrice: number) => void
@@ -28,6 +32,8 @@ interface BidInputProps {
 
 export function BidInput({
   configId,
+  listingId,
+  colors,
   msrp,
   currentUserBid,
   onBidPlaced,
@@ -43,6 +49,7 @@ export function BidInput({
   const { toast } = useToast()
   const [showPayModal, setShowPayModal] = useState(false)
   const [createdBidId, setCreatedBidId] = useState<string>('')
+  const [selectedConfigId, setSelectedConfigId] = useState(colors.length === 1 ? colors[0].configuration_id : configId)
   
   // For guests, show a login prompt instead of the bid form
   if (!userId) {
@@ -92,7 +99,7 @@ export function BidInput({
   
   // Validation
   // Offer must be > Reservation Fee (500)
-  const isValidBid = bidValue > RESERVATION_FEE_SAR
+  const isValidBid = bidValue > RESERVATION_FEE_SAR && Boolean(selectedConfigId)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,7 +114,7 @@ export function BidInput({
     }
 
     if (!isValidBid) {
-      setError(`يجب أن يكون العرض أعلى من رسوم الالتزام (${RESERVATION_FEE_SAR} ريال)`)
+      setError(!selectedConfigId ? 'اختر اللون المطلوب قبل تقديم العرض' : `يجب أن يكون العرض أعلى من رسوم الالتزام (${RESERVATION_FEE_SAR} ريال)`)
       return
     }
 
@@ -117,7 +124,7 @@ export function BidInput({
     try {
       // Logic: Place Bid -> Get ID -> Pay
       const { data, error: bidError } = await placeBid({
-        car_configuration_id: configId,
+        car_configuration_id: selectedConfigId,
         amount: bidValue,
         buyer_id: userId
       })
@@ -150,6 +157,23 @@ export function BidInput({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2"><Palette className="h-4 w-4 text-primary" />اختر اللون المطلوب *</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {colors.map((color) => (
+              <button
+                key={color.configuration_id}
+                type="button"
+                onClick={() => { setSelectedConfigId(color.configuration_id); setError('') }}
+                className={`rounded-xl border p-3 text-right transition-colors ${selectedConfigId === color.configuration_id ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background hover:border-primary/50'}`}
+                aria-pressed={selectedConfigId === color.configuration_id}
+              >
+                <span className="block font-semibold">{localizeVehicleText(color.color)}</span>
+                <span className="text-xs text-muted-foreground">متاح {color.available_quantity}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         {/* Context */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
            <div className="flex justify-between items-center">
@@ -280,7 +304,8 @@ export function BidInput({
                 amountHalalas={TOTAL_FEE_HALALAS}
                 description={`رسوم الالتزام للعرض رقم ${createdBidId}`}
                 bidId={createdBidId}
-                carId={configId} // Passing Config ID to ensure redirect works
+                carId={selectedConfigId}
+                listingId={listingId}
               />
             )}
           </div>

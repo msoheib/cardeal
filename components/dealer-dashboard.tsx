@@ -12,7 +12,8 @@ import { acceptBid, getDealsByDealer } from '@/lib/deals' // Use singular accept
 import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
 import { formatCurrencySar, formatGregorianDate, formatGregorianTime } from '@/lib/format'
 import { signOut } from '@/lib/auth'
-import { supabase, User, CarConfiguration, Deal } from '@/lib/supabase'
+import { toArabicError } from '@/lib/arabic-errors'
+import { supabase, User, Deal, DealerListing } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
 import {
   Car as CarIcon,
@@ -35,27 +36,13 @@ interface DealerDashboardProps {
   user: User
 }
 
-// Extended types for UI
-interface InventoryItem {
-  id: string
-  dealer_id: string
-  quantity: number
-  status: string
-  car_configuration_id: string
-  agency_price: number
-  listing_description?: string | null
-  listing_images: string[]
-  configuration: CarConfiguration
-  price_slots?: number[]
-}
-
 export function DealerDashboard({ user }: DealerDashboardProps) {
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [inventory, setInventory] = useState<DealerListing[]>([])
   const [opportunities, setOpportunities] = useState<any[]>([]) // Pending bids
   const [deals, setDeals] = useState<Deal[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [inventoryView, setInventoryView] = useState<'current' | 'archived'>('current')
-  const [archiveCandidate, setArchiveCandidate] = useState<InventoryItem | null>(null)
+  const [archiveCandidate, setArchiveCandidate] = useState<DealerListing | null>(null)
   const { toast } = useToast()
 
   const loadDashboardData = async () => {
@@ -126,7 +113,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
       .single()
     if (!dealerData) return
     const { data: invData } = await getDealerInventory(dealerData.id)
-    if (invData) setInventory(invData as InventoryItem[])
+    if (invData) setInventory(invData)
   }
 
   const handleArchive = async () => {
@@ -143,7 +130,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     await refreshInventory()
   }
 
-  const handleRestore = async (item: InventoryItem) => {
+  const handleRestore = async (item: DealerListing) => {
     setIsProcessing(true)
     const result = await restoreDealerInventoryListing(item.id)
     setIsProcessing(false)
@@ -330,22 +317,29 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                                 <CardHeader className="p-4 pb-0">
                                     <div className="flex justify-between items-start">
                                         <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
-                                            {item.status === 'active' ? 'نشط' : item.status === 'hidden' ? 'مؤرشف' : 'نفدت الكمية'}
+                                            {item.status === 'active' ? 'نشط' : 'مؤرشف'}
                                         </Badge>
-                                        {item.quantity === 0 && <Badge variant="destructive">نفذت الكمية</Badge>}
+                                        {item.inventory.reduce((sum, row) => sum + row.quantity, 0) === 0 && <Badge variant="destructive">نفذت الكمية</Badge>}
                                     </div>
                                     <CardTitle className="mt-2 text-lg">
-                                        {vehicleTitle(item.configuration)}
+                                        {vehicleTitle(item.specification || {})}
                                     </CardTitle>
-                                    <CardDescription>{localizeVehicleText(item.configuration.trim)}</CardDescription>
+                                    <CardDescription>{localizeVehicleText(item.specification?.trim)}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-end">
                                     <div className="flex justify-between items-center mb-4">
-                                        <span className="text-sm text-gray-500">الكمية: {item.quantity}</span>
-                                        <span className="font-bold text-primary">{formatCurrencySar(item.agency_price || item.configuration.msrp)}</span>
+                                        <span className="text-sm text-gray-500">الإجمالي: {item.inventory.reduce((sum, row) => sum + row.quantity, 0)}</span>
+                                        <span className="font-bold text-primary">{formatCurrencySar(item.agency_price)}</span>
+                                    </div>
+                                    <div className="mb-4 flex flex-wrap gap-2">
+                                      {item.inventory.filter((row) => row.quantity > 0).map((row) => (
+                                        <Badge key={row.id} variant="outline">
+                                          {localizeVehicleText(row.configuration?.color)}: {row.quantity}
+                                        </Badge>
+                                      ))}
                                     </div>
                                     <div className="flex gap-2">
-                                        <Link href={`/cars/${item.car_configuration_id}`} className="flex-1">
+                                        <Link href={`/cars/${item.listing_spec_id}`} className="flex-1">
                                             <Button variant="outline" className="w-full"><Eye className="ml-2 h-4 w-4" />عرض</Button>
                                         </Link>
                                         <Link href={`/dealer/cars/${item.id}/edit`}>
@@ -475,8 +469,5 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
 }
 
 function toArabicDashboardError(error: unknown) {
-  const message = typeof error === 'string' ? error : error && typeof error === 'object' && 'message' in error ? String((error as { message?: unknown }).message || '') : ''
-  if (/unresolved_paid_offer_or_pending_deal/i.test(message)) return 'لا يمكن إخفاء الإعلان لوجود عرض مدفوع أو طلب قيد المعالجة.'
-  if (/not_found|authorized|permission/i.test(message)) return 'لا يمكن الوصول إلى هذا الإعلان.'
-  return message || 'حدث خطأ غير متوقع.'
+  return toArabicError(error, 'تعذر إتمام الإجراء. حاول مرة أخرى أو تواصل مع الدعم.')
 }

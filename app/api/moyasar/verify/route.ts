@@ -15,21 +15,22 @@ export async function GET(req: NextRequest) {
     const moyasarId = searchParams.get('id') // Moyasar payment id from hosted form
     const bidId = searchParams.get('bid_id')
     const configId = searchParams.get('car_id') // We use car_id param for legacy compatibility but it holds config_id
+    const listingId = searchParams.get('listing_id') || configId
 
     // Basic guards
     if (!bidId || !configId) {
-      return NextResponse.redirect(new URL(`/cars/${configId || ''}?pay=error`, req.url))
+      return NextResponse.redirect(new URL(`/cars/${listingId || ''}?pay=error`, req.url))
     }
 
     // Must have a Moyasar payment id
     if (!moyasarId) {
-      return NextResponse.redirect(new URL(`/cars/${configId}?pay=failed`, req.url))
+      return NextResponse.redirect(new URL(`/cars/${listingId}?pay=failed`, req.url))
     }
 
     // Verify with Moyasar server-to-server using Secret Key
     const secretKey = process.env.MOYASAR_SECRET_KEY
     if (!secretKey) {
-      return NextResponse.redirect(new URL(`/cars/${configId}?pay=error`, req.url))
+      return NextResponse.redirect(new URL(`/cars/${listingId}?pay=error`, req.url))
     }
 
     const verifyRes = await fetch(`https://api.moyasar.com/v1/payments/${encodeURIComponent(moyasarId)}`, {
@@ -40,13 +41,13 @@ export async function GET(req: NextRequest) {
     })
 
     if (!verifyRes.ok) {
-      return NextResponse.redirect(new URL(`/cars/${configId}?pay=failed`, req.url))
+      return NextResponse.redirect(new URL(`/cars/${listingId}?pay=failed`, req.url))
     }
 
     const payment = await verifyRes.json() as any
     const validation = validateMoyasarPayment(payment, { bidId, configId })
     if (!validation.valid) {
-      return NextResponse.redirect(new URL(`/cars/${configId}?pay=failed`, req.url))
+      return NextResponse.redirect(new URL(`/cars/${listingId}?pay=failed`, req.url))
     }
 
     const supabase = getSupabaseAdmin()
@@ -60,12 +61,12 @@ export async function GET(req: NextRequest) {
     })
 
     if (error || !data?.success) {
-      return NextResponse.redirect(new URL(`/cars/${configId}?pay=error`, req.url))
+      return NextResponse.redirect(new URL(`/cars/${listingId}?pay=error`, req.url))
     }
 
     await updateBidAggregates(configId)
 
-    return NextResponse.redirect(new URL(`/cars/${configId}?pay=success`, req.url))
+    return NextResponse.redirect(new URL(`/cars/${listingId}?pay=success`, req.url))
   } catch {
     return NextResponse.redirect(new URL(`/cars?pay=error`, req.url))
   }

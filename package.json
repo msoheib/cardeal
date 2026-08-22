@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/verify-db-contract.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "test:security": "node --test tests/security/*.test.mjs",
+    "verify:db-contract": "node scripts/verify-db-contract.mjs",
     "seed:cars": "node scripts/seed-cars.js",
     "e2e:prod:seed": "node scripts/e2e-production-seed.js",
     "e2e:prod:cleanup": "node scripts/e2e-production-cleanup.js",
+    "e2e:multicolor": "node scripts/e2e-multicolor-lifecycle.js",
     "seed:vehicle-catalog": "node scripts/import-vehicle-catalog.js"
   },
   "overrides": {

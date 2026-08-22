@@ -131,6 +131,7 @@ export interface Deal {
 
 export interface CarConfiguration {
   id: string
+  listing_spec_id?: string
   make: string
   model: string
   year: number
@@ -149,6 +150,7 @@ export interface CarConfiguration {
 export interface DealerInventory {
   id: string
   dealer_id: string
+  dealer_listing_id: string
   car_configuration_id: string
   quantity: number
   status: 'active' | 'out_of_stock' | 'hidden'
@@ -167,13 +169,48 @@ export interface DealerVehicleFormValue {
   model: string
   year: number
   trim: string
-  color: string
   origin_locale: string
   variant: string
   agencyPrice: number
-  quantity: number
+  colors: ColorStockInput[]
   description: string
   images: string[]
+}
+
+export interface ColorStockInput {
+  color: string
+  quantity: number
+}
+
+export interface AvailableColorStock extends ColorStockInput {
+  configuration_id: string
+  available_quantity: number
+}
+
+export interface VehicleListingSpec {
+  id: string
+  make: string
+  model: string
+  year: number
+  trim: string
+  origin_locale: string
+  variant: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DealerListing {
+  id: string
+  dealer_id: string
+  listing_spec_id: string
+  agency_price: number
+  listing_description?: string | null
+  listing_images: string[]
+  status: 'active' | 'hidden'
+  created_at: string
+  updated_at: string
+  specification?: VehicleListingSpec
+  inventory: DealerInventoryListing[]
 }
 
 export interface DealerInventoryListing extends DealerInventory {
@@ -184,6 +221,15 @@ export interface AvailableCarConfiguration extends CarConfiguration {
   display_price: number
   available_quantity: number
   representative_images: string[]
+}
+
+export interface AvailableVehicleListing extends VehicleListingSpec {
+  display_price: number
+  available_quantity: number
+  representative_images: string[]
+  description?: string | null
+  colors: AvailableColorStock[]
+  images: string[]
 }
 
 export interface VehicleMake {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { AlertCircle, ArrowRight, Car, Loader2 } from 'lucide-react'
+import { AlertCircle, ArrowRight, Car, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,7 +39,7 @@ import {
 } from '@/lib/cars'
 import { toArabicError } from '@/lib/arabic-errors'
 import { getCurrentUser, getUserRole } from '@/lib/auth'
-import { DealerInventoryListing, supabase, VehicleMake, VehicleModel } from '@/lib/supabase'
+import { DealerListing, supabase, VehicleMake, VehicleModel } from '@/lib/supabase'
 
 const CUSTOM_MAKE_VALUE = '__custom_make__'
 const CUSTOM_MODEL_VALUE = '__custom_model__'
@@ -53,11 +53,10 @@ interface FormState {
   model: string
   year: string
   trim: string
-  color: string
   origin_locale: string
   variant: string
   agencyPrice: string
-  quantity: string
+  colors: Array<{ color: string; quantity: string; manual: boolean }>
   description: string
 }
 
@@ -67,28 +66,35 @@ function emptyForm(): FormState {
     model: dealerVehicleFormDefaults.model,
     year: String(dealerVehicleFormDefaults.year),
     trim: dealerVehicleFormDefaults.trim,
-    color: dealerVehicleFormDefaults.color,
     origin_locale: dealerVehicleFormDefaults.origin_locale,
     variant: dealerVehicleFormDefaults.variant,
     agencyPrice: '',
-    quantity: String(dealerVehicleFormDefaults.quantity),
+    colors: dealerVehicleFormDefaults.colors.map((row) => ({
+      color: row.color,
+      quantity: String(row.quantity),
+      manual: false,
+    })),
     description: dealerVehicleFormDefaults.description,
   }
 }
 
-function formFromListing(listing: DealerInventoryListing): FormState {
-  const config = listing.configuration
+function formFromListing(listing: DealerListing): FormState {
+  const spec = listing.specification
+  const activeColors = listing.inventory.filter((item) => item.quantity > 0)
   return {
-    make: config?.make || '',
-    model: config?.model || '',
-    year: String(config?.year || new Date().getFullYear()),
-    trim: config?.trim || '',
-    color: config?.color || '',
-    origin_locale: config?.origin_locale || '',
-    variant: config?.variant || 'أخرى',
-    agencyPrice: String(listing.agency_price || config?.msrp || ''),
-    quantity: String(listing.quantity ?? 1),
-    description: listing.listing_description || config?.description || '',
+    make: spec?.make || '',
+    model: spec?.model || '',
+    year: String(spec?.year || new Date().getFullYear()),
+    trim: spec?.trim || '',
+    origin_locale: spec?.origin_locale || '',
+    variant: spec?.variant || 'أخرى',
+    agencyPrice: String(listing.agency_price || ''),
+    colors: (activeColors.length ? activeColors : listing.inventory.slice(0, 1)).map((item) => ({
+      color: item.configuration?.color || '',
+      quantity: String(Math.max(1, item.quantity || 1)),
+      manual: !colorOptions.includes(item.configuration?.color || ''),
+    })),
+    description: listing.listing_description || '',
   }
 }
 
@@ -160,7 +166,6 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
   const [manualMake, setManualMake] = useState(false)
   const [manualModel, setManualModel] = useState(false)
   const [manualTrim, setManualTrim] = useState(false)
-  const [manualColor, setManualColor] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
   const [isCatalogLoading, setIsCatalogLoading] = useState(true)
   const [isModelsLoading, setIsModelsLoading] = useState(false)
@@ -169,7 +174,7 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
   const [catalogError, setCatalogError] = useState('')
   const [unauthorized, setUnauthorized] = useState(false)
   const [dealerId, setDealerId] = useState<string | null>(null)
-  const [listing, setListing] = useState<DealerInventoryListing | null>(null)
+  const [listing, setListing] = useState<DealerListing | null>(null)
   const [success, setSuccess] = useState('')
 
   const isEdit = Boolean(inventoryId)
@@ -217,8 +222,7 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
           const initialForm = formFromListing(result.data)
           setForm(initialForm)
           setManualTrim(!trimOptions.includes(initialForm.trim) && !legacyVariantValues.includes(initialForm.trim))
-          setManualColor(!colorOptions.includes(initialForm.color))
-          setImages(result.data.listing_images?.length ? result.data.listing_images : result.data.configuration?.images || [])
+          setImages(result.data.listing_images || [])
         }
       }
 
@@ -243,11 +247,11 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
         const sorted = sortVehicleMakes(result.data)
         setCatalogMakes(sorted)
         setCatalogError('')
-        if (listing?.configuration?.make) {
+        if (listing?.specification?.make) {
           const match = sorted.find((make) =>
-            sameCatalogName(make.name_en, listing.configuration?.make) ||
-            sameCatalogName(make.name_ar, listing.configuration?.make) ||
-            sameCatalogName(make.slug, listing.configuration?.make),
+            sameCatalogName(make.name_en, listing.specification?.make) ||
+            sameCatalogName(make.name_ar, listing.specification?.make) ||
+            sameCatalogName(make.slug, listing.specification?.make),
           )
           if (match) {
             setSelectedMakeId(match.id)
@@ -274,15 +278,15 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
       const result = await getVehicleModels(selectedMakeId)
       if (!active) return
       if (result.error) {
-        setCatalogError('تعذر تحميل موديلات هذه الماركة. يمكنك إدخال الموديل يدوياً.')
+        setCatalogError('تعذر تحميل طرازات هذه الماركة. يمكنك إدخال اسم الطراز يدوياً.')
         setCatalogModels([])
       } else {
         setCatalogModels(result.data)
-        if (listing?.configuration?.model) {
+        if (listing?.specification?.model) {
           const match = result.data.find((model) =>
-            sameCatalogName(model.name_en, listing.configuration?.model) ||
-            sameCatalogName(model.name_ar, listing.configuration?.model) ||
-            sameCatalogName(model.slug, listing.configuration?.model),
+            sameCatalogName(model.name_en, listing.specification?.model) ||
+            sameCatalogName(model.name_ar, listing.specification?.model) ||
+            sameCatalogName(model.slug, listing.specification?.model),
           )
           if (match) {
             setSelectedModelId(match.id)
@@ -313,7 +317,7 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
       searchText: modelSearchText(model),
       label: modelOptionLabel(model),
     })),
-    { value: CUSTOM_MODEL_VALUE, searchText: 'custom manual غير موجود', label: 'غير موجود؟ أضف الموديل يدوياً' },
+    { value: CUSTOM_MODEL_VALUE, searchText: 'custom manual غير موجود', label: 'غير موجود؟ أضف اسم الطراز يدوياً' },
   ], [catalogModels])
 
   const trimFieldOptions = useMemo<SearchableVehicleOption[]>(() => [
@@ -373,14 +377,39 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
     updateForm('trim', value)
   }
 
-  const handleColorChange = (value: string) => {
+  const handleColorChange = (index: number, value: string) => {
     if (value === CUSTOM_COLOR_VALUE) {
-      setManualColor(true)
-      updateForm('color', '')
+      setForm((previous) => ({
+        ...previous,
+        colors: previous.colors.map((row, rowIndex) => rowIndex === index ? { ...row, color: '', manual: true } : row),
+      }))
       return
     }
-    setManualColor(false)
-    updateForm('color', value)
+    setForm((previous) => ({
+      ...previous,
+      colors: previous.colors.map((row, rowIndex) => rowIndex === index ? { ...row, color: value, manual: false } : row),
+    }))
+    setError('')
+  }
+
+  const updateColorRow = (index: number, field: 'color' | 'quantity', value: string) => {
+    setForm((previous) => ({
+      ...previous,
+      colors: previous.colors.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row),
+    }))
+    setError('')
+  }
+
+  const addColorRow = () => {
+    setForm((previous) => ({ ...previous, colors: [...previous.colors, { color: '', quantity: '1', manual: false }] }))
+  }
+
+  const removeColorRow = (index: number) => {
+    setForm((previous) => ({
+      ...previous,
+      colors: previous.colors.length === 1 ? previous.colors : previous.colors.filter((_, rowIndex) => rowIndex !== index),
+    }))
+    setError('')
   }
 
   const submit = async (event: React.FormEvent) => {
@@ -393,11 +422,10 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
       model: form.model,
       year: Number(form.year),
       trim: form.trim,
-      color: form.color,
       origin_locale: form.origin_locale,
       variant: form.variant,
       agencyPrice: Number(form.agencyPrice),
-      quantity: Number(form.quantity),
+      colors: form.colors.map((row) => ({ color: row.color, quantity: Number(row.quantity) })),
       description: form.description,
       images,
     })
@@ -444,13 +472,13 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
             العودة للوحة التحكم
           </Button>
           <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'تعديل إعلان السيارة' : 'إضافة سيارة للمخزون'}</h1>
-          <p className="mt-1 text-gray-600">اختر الماركة والموديل من الكتالوج أو أدخلهما يدوياً عند الحاجة.</p>
+          <p className="mt-1 text-gray-600">اختر الماركة والطراز من الكتالوج أو أدخلهما يدوياً عند الحاجة.</p>
         </div>
 
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Car className="h-5 w-5" /> تفاصيل السيارة</CardTitle>
-            <CardDescription>كل إعلان يمثل لوناً واحداً. إذا اختلفت الكمية حسب اللون، أنشئ إعلاناً منفصلاً لكل لون.</CardDescription>
+            <CardDescription>أضف جميع الألوان المتاحة وكميّة كل لون داخل إعلان واحد.</CardDescription>
           </CardHeader>
           <form onSubmit={submit}>
             <CardContent className="space-y-6">
@@ -472,40 +500,68 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>الموديل *</Label>
+                  <Label>الطراز / اسم الموديل *</Label>
                   {manualModel || manualMake ? (
                     <div className="flex gap-2">
-                      <Input value={form.model} onChange={(event) => updateForm('model', event.target.value)} placeholder="اكتب الموديل" />
+                      <Input value={form.model} onChange={(event) => updateForm('model', event.target.value)} placeholder="اكتب اسم الطراز" />
                       {!manualMake && <Button type="button" variant="outline" onClick={() => setManualModel(false)}>الكتالوج</Button>}
                     </div>
                   ) : (
-                    <SearchableVehicleField value={selectedModelId} onChange={handleModelChange} options={modelOptions} disabled={!selectedMakeId || isModelsLoading} placeholder={isModelsLoading ? 'جاري تحميل الموديلات' : 'ابحث عن الموديل'} searchPlaceholder="ابحث بالعربي أو الإنجليزي" />
+                    <SearchableVehicleField value={selectedModelId} onChange={handleModelChange} options={modelOptions} disabled={!selectedMakeId || isModelsLoading} placeholder={isModelsLoading ? 'جاري تحميل الطرازات' : 'ابحث عن الطراز'} searchPlaceholder="ابحث بالعربي أو الإنجليزي" />
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2"><Label>السنة *</Label><Select value={form.year} onValueChange={(value) => updateForm('year', value)}><SelectTrigger><SelectValue placeholder="اختر السنة" /></SelectTrigger><SelectContent>{yearOptions.map((year) => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>سنة الصنع *</Label><Select value={form.year} onValueChange={(value) => updateForm('year', value)}><SelectTrigger><SelectValue placeholder="اختر سنة الصنع" /></SelectTrigger><SelectContent>{yearOptions.map((year) => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}</SelectContent></Select></div>
                 <div className="space-y-2">
                   <Label>الفئة / التريم *</Label>
                   {manualTrim ? <div className="flex gap-2"><Input value={form.trim} onChange={(event) => updateForm('trim', event.target.value)} placeholder="اكتب الفئة" /><Button type="button" variant="outline" onClick={() => setManualTrim(false)}>الخيارات</Button></div> : <SearchableVehicleField value={trimOptions.includes(form.trim) || legacyVariantValues.includes(form.trim) ? form.trim : ''} onChange={handleTrimChange} options={trimFieldOptions} placeholder="ابحث عن الفئة" searchPlaceholder="ابحث عن الفئة أو اختر أخرى" />}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>اللون *</Label>
-                  {manualColor ? <div className="flex gap-2"><Input value={form.color} onChange={(event) => updateForm('color', event.target.value)} placeholder="مثال: أبيض / أسود" /><Button type="button" variant="outline" onClick={() => setManualColor(false)}>الخيارات</Button></div> : <SearchableVehicleField value={colorOptions.includes(form.color) ? form.color : ''} onChange={handleColorChange} options={colorFieldOptions} placeholder="ابحث عن اللون" searchPlaceholder="ابحث عن لون شائع أو اختر لوناً مخصصاً" />}
-                  <p className="text-xs text-muted-foreground">يمكنك كتابة لون مخصص أو لون ثنائي، مثل: أبيض / أسود.</p>
-                </div>
-                <div className="space-y-2"><Label>منشأ السيارة *</Label><Select value={form.origin_locale} onValueChange={(value) => updateForm('origin_locale', value)}><SelectTrigger><SelectValue placeholder="اختر المنشأ" /></SelectTrigger><SelectContent>{originOptions.map((origin) => <SelectItem key={origin} value={origin}>{origin}</SelectItem>)}{form.origin_locale && !originOptions.includes(form.origin_locale) && <SelectItem value={form.origin_locale}>{form.origin_locale} (قيمة قديمة)</SelectItem>}</SelectContent></Select></div>
-              </div>
+              <div className="space-y-2"><Label>منشأ السيارة *</Label><Select value={form.origin_locale} onValueChange={(value) => updateForm('origin_locale', value)}><SelectTrigger><SelectValue placeholder="اختر المنشأ" /></SelectTrigger><SelectContent>{originOptions.map((origin) => <SelectItem key={origin} value={origin}>{origin}</SelectItem>)}{form.origin_locale && !originOptions.includes(form.origin_locale) && <SelectItem value={form.origin_locale}>{form.origin_locale} (قيمة قديمة)</SelectItem>}</SelectContent></Select></div>
 
               <div className="space-y-2"><Label>مستوى التجهيز *</Label><Select value={form.variant} onValueChange={(value) => updateForm('variant', value)}><SelectTrigger><SelectValue placeholder="اختر مستوى التجهيز" /></SelectTrigger><SelectContent>{variantOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}{form.variant && !variantOptions.some((option) => option.value === form.variant) && <SelectItem value={form.variant}>{form.variant} (قيمة قديمة)</SelectItem>}</SelectContent></Select></div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2"><Label>سعر الوكالة / السعر المرجعي *</Label><Input type="number" min="0.01" step="0.01" value={form.agencyPrice} onChange={(event) => updateForm('agencyPrice', event.target.value)} required /><p className="text-xs text-muted-foreground">هذا هو سعر الوكالة الرسمي أو المرجعي، وليس عرض المشتري أو سعر المزاد.</p></div>
-                <div className="space-y-2"><Label>الكمية *</Label><Input type="number" min="1" step="1" value={form.quantity} onChange={(event) => updateForm('quantity', event.target.value)} required /></div>
+              <div className="space-y-2"><Label>سعر الوكالة / السعر المرجعي *</Label><Input type="number" min="0.01" step="0.01" value={form.agencyPrice} onChange={(event) => updateForm('agencyPrice', event.target.value)} required /><p className="text-xs text-muted-foreground">سعر واحد مشترك لجميع الألوان، وليس عرض المشتري أو سعر المزاد.</p></div>
+
+              <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <Label>الألوان والكميات *</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">يمكنك إضافة لون مخصص أو ثنائي، مثل: أبيض / أسود.</p>
+                  </div>
+                  <div className="rounded-lg bg-background px-3 py-2 text-sm font-semibold">
+                    الإجمالي: {form.colors.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0)} سيارة
+                  </div>
+                </div>
+                {form.colors.map((row, index) => (
+                  <div key={index} className="grid grid-cols-1 gap-3 rounded-xl border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
+                    <div className="space-y-2">
+                      <Label htmlFor={`color-${index}`}>اللون {index + 1}</Label>
+                      {row.manual ? (
+                        <div className="flex gap-2">
+                          <Input id={`color-${index}`} value={row.color} onChange={(event) => updateColorRow(index, 'color', event.target.value)} placeholder="مثال: أبيض / أسود" />
+                          <Button type="button" variant="outline" onClick={() => handleColorChange(index, '')}>الخيارات</Button>
+                        </div>
+                      ) : (
+                        <SearchableVehicleField value={colorOptions.includes(row.color) ? row.color : ''} onChange={(value) => handleColorChange(index, value)} options={colorFieldOptions} placeholder="ابحث عن اللون" searchPlaceholder="ابحث عن لون شائع أو اختر لوناً مخصصاً" />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`quantity-${index}`}>الكمية</Label>
+                      <Input id={`quantity-${index}`} type="number" min="1" max="100000" step="1" value={row.quantity} onChange={(event) => updateColorRow(index, 'quantity', event.target.value)} required />
+                    </div>
+                    <Button type="button" variant="outline" size="icon" aria-label={`حذف اللون ${index + 1}`} onClick={() => removeColorRow(index)} disabled={form.colors.length === 1}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" className="w-full gap-2" onClick={addColorRow} disabled={form.colors.length >= 50}>
+                  <Plus className="h-4 w-4" />
+                  إضافة لون آخر
+                </Button>
               </div>
 
               <ImageUpload images={images} onImagesChange={setImages} maxImages={5} />

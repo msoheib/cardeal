@@ -366,7 +366,7 @@ RETURNS TABLE (
   model text,
   year integer,
   variant text,
-  trim text,
+  "trim" text,
   color text,
   origin_locale text,
   msrp numeric,

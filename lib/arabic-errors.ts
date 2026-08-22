@@ -8,6 +8,7 @@ const ERROR_TRANSLATIONS: Array<[RegExp, string]> = [
   [/password.*at least|minimum password/i, 'كلمة المرور قصيرة جدا.'],
   [/rate limit|too many/i, 'تم تنفيذ محاولات كثيرة. يرجى الانتظار قليلا ثم المحاولة مرة أخرى.'],
   [/network|fetch failed|failed to fetch/i, 'تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مرة أخرى.'],
+  [/PGRST202|schema cache|could not find the function|column .* does not exist/i, 'الخدمة غير متاحة مؤقتاً بسبب تحديث النظام. حاول مرة أخرى بعد قليل.'],
   [/duplicate|23505/i, 'هذه البيانات موجودة بالفعل.'],
   [/row level security|permission denied|not authorized|unauthorized/i, 'ليست لديك صلاحية لتنفيذ هذا الإجراء.'],
   [/description_required/i, 'يرجى كتابة تفاصيل المشكلة بوضوح.'],
@@ -15,6 +16,17 @@ const ERROR_TRANSLATIONS: Array<[RegExp, string]> = [
   [/ticket_already_open/i, 'توجد تذكرة مفتوحة لهذا الطلب. يرجى انتظار مراجعة الإدارة.'],
   [/deal_not_found|ticket_not_found/i, 'لم يتم العثور على الطلب أو التذكرة المطلوبة.'],
   [/admin_required/i, 'هذا الإجراء متاح للإدارة فقط.'],
+  [/approved_dealer_required/i, 'هذا الإجراء متاح للتجار المعتمدين فقط.'],
+  [/required_identity_fields/i, 'يرجى استكمال بيانات السيارة المطلوبة.'],
+  [/agency_price_must_be_positive/i, 'يجب أن يكون سعر الوكالة أكبر من صفر.'],
+  [/invalid_color_rows/i, 'أضف لوناً واحداً على الأقل مع كميته.'],
+  [/color_quantity_must_be_positive_integer/i, 'يجب أن تكون كمية كل لون عدداً صحيحاً أكبر من صفر.'],
+  [/duplicate_color_row/i, 'لا يمكن تكرار اللون نفسه داخل الإعلان.'],
+  [/listing_quantity_too_large/i, 'إجمالي الكمية يتجاوز الحد المسموح.'],
+  [/maximum_five_images/i, 'يمكن رفع خمس صور كحد أقصى.'],
+  [/duplicate_inventory_listing/i, 'يوجد إعلان آخر لنفس السيارة واللون.'],
+  [/color_has_unresolved_commercial_workflow|unresolved_paid_offer_or_pending_deal/i, 'لا يمكن تعديل هذا اللون أو إخفاء الإعلان لوجود عرض مدفوع أو طلب قيد المعالجة.'],
+  [/inventory_not_found/i, 'لم يتم العثور على الإعلان أو لا تملك صلاحية الوصول إليه.'],
   [/not found|no rows/i, 'لم يتم العثور على البيانات المطلوبة.']
 ]
 
