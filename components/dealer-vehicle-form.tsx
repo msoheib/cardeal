@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { AlertCircle, ArrowRight, Car, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/layout/page-header'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -464,18 +465,15 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8" dir="rtl">
-      <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-8">
-          <Button type="button" variant="ghost" className="mb-4 gap-2" onClick={() => router.push('/dashboard')}>
-            <ArrowRight className="h-4 w-4" />
-            العودة للوحة التحكم
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'تعديل إعلان السيارة' : 'إضافة سيارة للمخزون'}</h1>
-          <p className="mt-1 text-gray-600">اختر الماركة والطراز من الكتالوج أو أدخلهما يدوياً عند الحاجة.</p>
-        </div>
+    <div className="page">
+      <div className="mx-auto w-full max-w-3xl space-y-6">
+        <PageHeader
+          eyebrow={<button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => router.push('/dashboard')}><ArrowRight className="h-3.5 w-3.5" />لوحة التاجر</button>}
+          title={isEdit ? 'تعديل إعلان السيارة' : 'إضافة سيارة للمخزون'}
+          description="اختر الماركة والطراز من الكتالوج أو أدخلهما يدوياً عند الحاجة."
+        />
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Car className="h-5 w-5" /> تفاصيل السيارة</CardTitle>
             <CardDescription>أضف جميع الألوان المتاحة وكميّة كل لون داخل إعلان واحد.</CardDescription>
@@ -484,7 +482,7 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
             <CardContent className="space-y-6">
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
               {catalogError && <Alert><AlertCircle className="h-4 w-4" /><AlertDescription>{catalogError}</AlertDescription></Alert>}
-              {success && <Alert className="border-green-500 bg-green-50 text-green-900"><AlertDescription>{success}</AlertDescription></Alert>}
+              {success && <Alert className="border-transparent bg-status-success text-status-success-foreground"><AlertDescription>{success}</AlertDescription></Alert>}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -537,7 +535,7 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
                   </div>
                 </div>
                 {form.colors.map((row, index) => (
-                  <div key={index} className="grid grid-cols-1 gap-3 rounded-xl border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
+                  <div key={index} className="grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_120px_auto] sm:items-end">
                     <div className="space-y-2">
                       <Label htmlFor={`color-${index}`}>اللون {index + 1}</Label>
                       {row.manual ? (
@@ -567,7 +565,7 @@ export function DealerVehicleForm({ inventoryId }: DealerVehicleFormProps) {
               <ImageUpload images={images} onImagesChange={setImages} maxImages={5} />
               <div className="space-y-2"><Label>الوصف</Label><Textarea maxLength={5000} value={form.description} onChange={(event) => updateForm('description', event.target.value)} placeholder="أضف وصفاً مختصراً للسيارة" /></div>
             </CardContent>
-            <CardFooter><Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : isEdit ? 'حفظ التعديلات' : 'إضافة إلى المخزون'}</Button></CardFooter>
+            <CardFooter className="justify-end border-t border-border pt-4"><Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : isEdit ? 'حفظ التعديلات' : 'إضافة إلى المخزون'}</Button></CardFooter>
           </form>
         </Card>
       </div>

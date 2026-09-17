@@ -46,7 +46,8 @@
     --chart-3: 206 28% 38%;
     --chart-4: 352 74% 58%;
     --chart-5: 48 94% 62%;
-    --radius: 0.875rem;
+    /* Tight corners: 4px chips, 6px controls, 8px surfaces. */
+    --radius: 0.5rem;
   }
   .dark {
     --background: 210 30% 8%;
@@ -85,7 +86,7 @@
     font-family: var(--font-tajawal, 'Tajawal', 'Segoe UI', Tahoma, sans-serif);
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply text-foreground font-semibold;
+    @apply text-foreground font-bold;
   }
   p {
     @apply text-muted-foreground;
@@ -93,37 +94,26 @@
 }
 
 @layer components {
-  .app-gradient-bg {
-    background: hsl(var(--background));
+  /* Layout primitives — see docs/design-system.md */
+  .page {
+    @apply container py-6 lg:py-8;
   }
-
-  .surface-card {
-    border-radius: 24px;
-    background: hsl(var(--card));
-    box-shadow: 0 1px 2px rgba(23, 45, 53, 0.06);
-    border: 1px solid hsl(var(--border));
+  .page-narrow {
+    @apply mx-auto w-full max-w-prose px-4 py-6 lg:py-10;
   }
-  .surface-card--soft {
-    border-radius: 22px;
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 2px rgba(23, 45, 53, 0.05);
+  .page-title {
+    @apply text-2xl font-bold leading-8 text-foreground;
   }
-  .brand-chip {
-    border-radius: 9999px;
-    background: color-mix(in oklab, hsl(var(--primary)) 12%, white);
-    color: hsl(var(--primary));
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    padding: 0.375rem 1rem;
+  .section-title {
+    @apply text-base font-bold leading-6 text-foreground;
   }
-  .brand-chip--solid {
-    background: hsl(var(--primary));
-    color: #fff;
+  .eyebrow {
+    @apply text-xs font-medium text-muted-foreground;
   }
-  .brand-shadow {
-    box-shadow: 0 1px 2px rgba(33, 86, 91, 0.08);
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .surface {
+    @apply rounded-lg border border-border bg-card;
   }
 }

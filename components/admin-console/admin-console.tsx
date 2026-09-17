@@ -1,13 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { PageHeader } from '@/components/layout/page-header'
 import {
   Activity,
   BadgeCheck,
   Building2,
   Car,
-  ClipboardList,
   FileText,
   Gavel,
   Handshake,
@@ -63,27 +62,16 @@ export function AdminConsole({ user }: { user: User }) {
   ]
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      <div className="border-b border-border bg-card">
-        <div className="container mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-white">
-              <ClipboardList className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-xl font-extrabold text-foreground">لوحة الإدارة الشاملة</h1>
-              <p className="text-sm">كل الإعلانات والعروض والصفقات والحسابات في مكان واحد · {user.full_name}</p>
-            </div>
-          </div>
-          <Link href="/dashboard" className="text-sm font-semibold text-primary hover:underline">
-            اللوحة المختصرة
-          </Link>
-        </div>
-      </div>
+    <div className="page space-y-6" dir="rtl">
+      <PageHeader
+        eyebrow={`مرحباً، ${user.full_name}`}
+        title="الإدارة"
+        description="كل الإعلانات والعروض والصفقات والحسابات في مكان واحد."
+      />
 
-      <div className="container mx-auto flex flex-col gap-6 px-4 py-6 lg:flex-row">
-        <nav aria-label="أقسام الإدارة" className="lg:w-56 lg:shrink-0">
-          <ul className="flex gap-1 overflow-x-auto pb-1 lg:sticky lg:top-24 lg:flex-col lg:overflow-visible lg:pb-0">
+      <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+        <nav aria-label="أقسام الإدارة" className="lg:w-48 lg:shrink-0">
+          <ul className="flex gap-1 overflow-x-auto border-b border-border pb-2 lg:sticky lg:top-20 lg:flex-col lg:overflow-visible lg:border-b-0 lg:pb-0">
             {nav.map((item) => {
               const Icon = item.icon
               const active = view === item.key
@@ -94,8 +82,8 @@ export function AdminConsole({ user }: { user: User }) {
                     onClick={() => (item.key === 'overview' || item.key === 'audit' ? setView(item.key) : openResource(item.key))}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'flex min-h-10 w-full items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors',
-                      active ? 'bg-primary font-bold text-primary-foreground' : 'text-foreground hover:bg-muted'
+                      'flex h-9 w-full items-center gap-2 whitespace-nowrap rounded-md px-2.5 text-sm transition-colors',
+                      active ? 'bg-primary/10 font-bold text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />

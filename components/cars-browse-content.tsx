@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, ArrowLeft, Building2, Car, ChevronDown, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PageHeader, Section } from '@/components/layout/page-header'
 import { CarCard } from '@/components/car-card'
 import { localizeVehicleText } from '@/lib/arabic-display'
 import { formatNumber } from '@/lib/format'
@@ -122,224 +122,188 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
   }, [configs, appliedConfigIds])
 
   const activeFilters = useMemo(() => {
-    const items: string[] = []
-    if (filters.search) items.push(`بحث: ${filters.search}`)
-    if (filters.make !== 'all') items.push(`الماركة: ${localizeVehicleText(filters.make)}`)
-    if (filters.origin_locale !== 'all') items.push(`المنشأ: ${localizeVehicleText(filters.origin_locale)}`)
-    if (filters.priceFrom) items.push(`من ${formatNumber(Number(filters.priceFrom))} ر.س`)
-    if (filters.priceTo) items.push(`إلى ${formatNumber(Number(filters.priceTo))} ر.س`)
+    const items: { key: keyof FiltersState; label: string }[] = []
+    if (filters.search) items.push({ key: 'search', label: `بحث: ${filters.search}` })
+    if (filters.make !== 'all') items.push({ key: 'make', label: localizeVehicleText(filters.make) })
+    if (filters.origin_locale !== 'all') items.push({ key: 'origin_locale', label: localizeVehicleText(filters.origin_locale) })
+    if (filters.priceFrom) items.push({ key: 'priceFrom', label: `من ${formatNumber(Number(filters.priceFrom))} ر.س` })
+    if (filters.priceTo) items.push({ key: 'priceTo', label: `إلى ${formatNumber(Number(filters.priceTo))} ر.س` })
     return items
   }, [filters])
 
   const hasFilters = activeFilters.length > 0
-  const formattedRemainingCount = formatNumber(remainingConfigs.length)
   const clearFilters = () => setFilters(defaultFilters)
+  const setFilter = <K extends keyof FiltersState>(key: K, value: FiltersState[K]) =>
+    setFilters((current) => ({ ...current, [key]: value }))
 
   return (
-    <div className={cn('bg-background text-foreground', showDashboardLink ? 'min-h-screen' : 'rounded-2xl py-2')}>
-      <div className="container mx-auto flex flex-col items-start gap-6 px-4 py-6 lg:flex-row">
-        <aside className="w-full shrink-0 lg:sticky lg:top-28 lg:w-[320px]">
-          <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-sm">
-            <CardHeader className="border-b border-border bg-card px-5 py-4">
-              <CardTitle className="flex items-center justify-between text-base text-foreground">
-                <button
-                  type="button"
-                  onClick={() => setFiltersOpen((open) => !open)}
-                  aria-expanded={filtersOpen}
-                  aria-controls="market-filters"
-                  className="flex min-h-11 items-center gap-2 rounded-xl lg:pointer-events-none lg:min-h-0"
-                >
-                  <SlidersHorizontal className="h-4 w-4 text-primary" />
-                  فلترة السوق
-                  {hasFilters && (
-                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
-                      {formatNumber(activeFilters.length)}
-                    </span>
-                  )}
-                  <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform lg:hidden', filtersOpen && 'rotate-180')} />
-                </button>
-                {hasFilters && (
-                  <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="rounded-xl text-muted-foreground">
-                    <X className="ml-1 h-4 w-4" />
-                    مسح
-                  </Button>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5 p-4 lg:p-5">
-              <div className="space-y-2">
-                <label className="sr-only text-sm font-semibold text-foreground lg:not-sr-only">بحث سريع</label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="ابحث بالماركة أو الطراز"
-                    aria-label="بحث سريع"
-                    value={filters.search}
-                    onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                    className="h-11 rounded-xl bg-background pr-11"
-                  />
-                </div>
-              </div>
+    <div className={cn('page space-y-6', !showDashboardLink && 'py-0 lg:py-0')}>
+      <PageHeader
+        title="السوق"
+        description="سيارات جديدة من تجار موثّقين. الأسعار ورسوم الالتزام معلنة قبل تقديم العرض."
+        actions={
+          <Button type="button" variant="outline" size="sm" onClick={loadCars} disabled={isLoading}>
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+            تحديث
+          </Button>
+        }
+      />
 
-              <div id="market-filters" className={cn('space-y-5', !filtersOpen && 'hidden lg:block')}>
-              <FilterSelect
-                label="الماركة"
-                value={filters.make}
-                placeholder="اختر الماركة"
-                allLabel="جميع الماركات"
-                options={makes}
-                onValueChange={(make) => setFilters((current) => ({ ...current, make }))}
-              />
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">نطاق السعر</label>
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="الأدنى"
-                    value={filters.priceFrom}
-                    onChange={(event) => setFilters((current) => ({ ...current, priceFrom: event.target.value }))}
-                    className="h-11 rounded-xl bg-background"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="number"
-                    placeholder="الأعلى"
-                    value={filters.priceTo}
-                    onChange={(event) => setFilters((current) => ({ ...current, priceTo: event.target.value }))}
-                    className="h-11 rounded-xl bg-background"
-                  />
-                </div>
-              </div>
-
-              <FilterSelect
-                label="منشأ السيارة"
-                value={filters.origin_locale}
-                placeholder="اختر المنشأ"
-                allLabel="جميع المناشئ"
-                options={origins}
-                onValueChange={(origin_locale) => setFilters((current) => ({ ...current, origin_locale }))}
-              />
-
-              <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  موردون موثّقون فقط
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  معلومات التواصل تظهر بعد قبول العرض فقط.
-                </p>
-              </div>
-              </div>
-
-            </CardContent>
-          </Card>
-        </aside>
-
-        <main className="w-full flex-1 space-y-6">
-          {appliedConfigs.length > 0 && (
-            <section className="space-y-4 rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground">سياراتك الحالية</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">نتائج لديك عليها عرض نشط أو مقبول.</p>
-                </div>
-                <Badge className="w-fit rounded-full border-0 bg-primary px-4 py-2 text-white">
-                  {formatNumber(appliedConfigs.length)} سيارة
-                </Badge>
-              </div>
-              <CarGrid configs={appliedConfigs} applied />
-            </section>
-          )}
-
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">
-                  {isLoading ? 'جاري تجهيز السيارات...' : `${formattedRemainingCount} سيارة متاحة`}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  نتائج مطابقة للفلاتر الحالية. الأسعار والرسوم ظاهرة قبل تقديم العرض.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="rounded-full px-3 py-1.5">
-                  {formatNumber(appliedConfigs.length)} ضمن عروضك
-                </Badge>
-                <Button type="button" variant="outline" onClick={loadCars} className="rounded-xl bg-card">
-                  <RefreshCw className="ml-2 h-4 w-4" />
-                  تحديث النتائج
-                </Button>
-              </div>
-            </div>
-            {hasFilters && (
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-                {activeFilters.map((item) => (
-                  <Badge key={item} variant="outline" className="rounded-full border-border px-3 py-1 text-muted-foreground">
-                    {item}
-                  </Badge>
-                ))}
-              </div>
-            )}
+      <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-8">
+        <aside className="space-y-4 lg:sticky lg:top-20">
+          <div className="relative">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="ابحث بالماركة أو الطراز"
+              aria-label="بحث سريع"
+              value={filters.search}
+              onChange={(event) => setFilter('search', event.target.value)}
+              className="ps-9"
+            />
           </div>
 
-          {isLoading ? (
-            <LoadingCards />
-          ) : loadError ? (
-            <Card className="rounded-2xl border-destructive/30 bg-card py-14 text-center">
-              <CardContent>
-                <AlertCircle className="mx-auto mb-4 h-10 w-10 text-destructive" />
-                <h2 className="text-xl font-bold text-foreground">السوق غير متاح مؤقتاً</h2>
-                <p className="mx-auto mt-2 max-w-md text-muted-foreground">يجري تحديث الخدمة. حاول مرة أخرى بعد قليل.</p>
-                <Button type="button" variant="outline" className="mt-5" onClick={loadCars}>إعادة المحاولة</Button>
-              </CardContent>
-            </Card>
-          ) : configs.length === 0 ? (
-            <EmptyState hasFilters={hasFilters} onClear={clearFilters} />
-          ) : remainingConfigs.length > 0 ? (
-            <CarGrid configs={remainingConfigs} />
-          ) : (
-            <Card className="rounded-2xl border-border bg-card py-14 text-center">
-              <CardContent>
-                <Car className="mx-auto mb-4 h-10 w-10 text-primary" />
-                <h2 className="text-xl font-bold text-foreground">كل النتائج ضمن سياراتك الحالية</h2>
-                <p className="mx-auto mt-2 max-w-md text-muted-foreground">غيّر الفلاتر أو ارجع لاحقاً عند إضافة مخزون جديد.</p>
-                <Button asChild variant="outline" className="mt-5 rounded-xl bg-card">
-                  <Link href="/dashboard">
-                    متابعة طلباتي
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            aria-controls="market-filters"
+            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-card px-3 text-sm lg:hidden"
+          >
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+              فلترة السوق
+              {hasFilters && <span className="num rounded-sm bg-primary px-1.5 text-xs font-bold text-primary-foreground">{formatNumber(activeFilters.length)}</span>}
+            </span>
+            <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', filtersOpen && 'rotate-180')} />
+          </button>
+
+          <div id="market-filters" className={cn('space-y-4', !filtersOpen && 'hidden lg:block')}>
+            <FilterSelect
+              id="filter-make"
+              label="الماركة"
+              value={filters.make}
+              allLabel="جميع الماركات"
+              options={makes}
+              onValueChange={(make) => setFilter('make', make)}
+            />
+
+            <fieldset>
+              <legend className="mb-1.5 text-xs font-medium text-muted-foreground">نطاق السعر (ر.س)</legend>
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="number" inputMode="numeric" placeholder="من" aria-label="السعر الأدنى" value={filters.priceFrom} onChange={(event) => setFilter('priceFrom', event.target.value)} />
+                <Input type="number" inputMode="numeric" placeholder="إلى" aria-label="السعر الأعلى" value={filters.priceTo} onChange={(event) => setFilter('priceTo', event.target.value)} />
+              </div>
+            </fieldset>
+
+            <FilterSelect
+              id="filter-origin"
+              label="المنشأ"
+              value={filters.origin_locale}
+              allLabel="جميع المناشئ"
+              options={origins}
+              onValueChange={(origin_locale) => setFilter('origin_locale', origin_locale)}
+            />
+
+            <p className="flex gap-2 border-t border-border pt-4 text-xs leading-5">
+              <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              كل الموردين موثّقون، وتظهر بيانات التواصل بعد قبول العرض فقط.
+            </p>
+          </div>
+        </aside>
+
+        <div className="min-w-0 space-y-6">
+          {appliedConfigs.length > 0 && (
+            <Section title={`سيارات لديك عليها عرض (${formatNumber(appliedConfigs.length)})`}>
+              <CarGrid configs={appliedConfigs} applied />
+            </Section>
           )}
-        </main>
+
+          <Section>
+            <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
+              <p className="me-2 text-sm font-bold text-foreground">
+                {isLoading ? 'جاري التحميل...' : `${formatNumber(remainingConfigs.length)} سيارة متاحة`}
+              </p>
+              {activeFilters.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setFilter(item.key, defaultFilters[item.key])}
+                  className="inline-flex h-7 items-center gap-1 rounded-sm border border-border bg-card px-2 text-xs text-foreground hover:bg-muted"
+                >
+                  {item.label}
+                  <X className="h-3 w-3" aria-hidden />
+                  <span className="sr-only">إزالة</span>
+                </button>
+              ))}
+              {hasFilters && (
+                <Button type="button" variant="link" size="sm" onClick={clearFilters} className="text-xs">مسح الكل</Button>
+              )}
+            </div>
+
+            {isLoading ? (
+              <LoadingCards />
+            ) : loadError ? (
+              <div className="surface">
+                <EmptyState
+                  icon={AlertCircle}
+                  title="السوق غير متاح مؤقتاً"
+                  description="يجري تحديث الخدمة. حاول مرة أخرى بعد قليل."
+                  action={<Button type="button" variant="outline" size="sm" onClick={loadCars}>إعادة المحاولة</Button>}
+                />
+              </div>
+            ) : configs.length === 0 ? (
+              <div className="surface">
+                <EmptyState
+                  icon={Search}
+                  title="لا توجد نتائج"
+                  description="لم نعثر على سيارات تطابق الخيارات الحالية. جرّب توسيع نطاق السعر أو إزالة الفلاتر."
+                  action={hasFilters ? <Button size="sm" onClick={clearFilters}>مسح الفلاتر</Button> : undefined}
+                />
+              </div>
+            ) : remainingConfigs.length > 0 ? (
+              <CarGrid configs={remainingConfigs} />
+            ) : (
+              <div className="surface">
+                <EmptyState
+                  icon={Car}
+                  title="كل النتائج ضمن سياراتك الحالية"
+                  description="غيّر الفلاتر أو ارجع لاحقاً عند إضافة مخزون جديد."
+                  action={
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/dashboard">متابعة طلباتي<ArrowLeft className="h-4 w-4" /></Link>
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+          </Section>
+        </div>
       </div>
     </div>
   )
 }
 
 function FilterSelect({
+  id,
   label,
   value,
-  placeholder,
   allLabel,
   options,
   onValueChange
 }: {
+  id: string
   label: string
   value: string
-  placeholder: string
   allLabel: string
   options: string[]
   onValueChange: (value: string) => void
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold text-foreground">{label}</label>
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="h-11 rounded-xl bg-background">
-          <SelectValue placeholder={placeholder} />
+        <SelectTrigger id={id}>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{allLabel}</SelectItem>
@@ -354,9 +318,9 @@ function FilterSelect({
 
 function CarGrid({ configs, applied = false }: { configs: AvailableVehicleListing[]; applied?: boolean }) {
   return (
-    <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {configs.map((config) => (
-        <CarCard key={config.id} config={config} showBidStats isApplied={applied} />
+        <CarCard key={config.id} config={config} isApplied={applied} />
       ))}
     </div>
   )
@@ -364,42 +328,17 @@ function CarGrid({ configs, applied = false }: { configs: AvailableVehicleListin
 
 function LoadingCards() {
   return (
-    <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
       {Array.from({ length: 6 }, (_, index) => (
-        <Card key={index} className="overflow-hidden rounded-2xl border-border bg-card">
-          <div className="h-48 animate-pulse bg-muted" />
-          <CardContent className="space-y-4 p-5">
-            <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="h-14 animate-pulse rounded-xl bg-muted" />
-              <div className="h-14 animate-pulse rounded-xl bg-muted" />
-              <div className="h-14 animate-pulse rounded-xl bg-muted" />
-              <div className="h-14 animate-pulse rounded-xl bg-muted" />
-            </div>
-            <div className="space-y-4">
-              <div className="h-8 animate-pulse rounded bg-muted" />
-              <div className="h-11 animate-pulse rounded-xl bg-muted" />
-            </div>
-          </CardContent>
-        </Card>
+        <div key={index} className="surface overflow-hidden">
+          <div className="aspect-[16/10] animate-pulse bg-muted" />
+          <div className="space-y-3 p-4">
+            <div className="h-5 w-3/4 animate-pulse rounded-sm bg-muted" />
+            <div className="h-4 w-1/2 animate-pulse rounded-sm bg-muted" />
+            <div className="h-6 w-full animate-pulse rounded-sm bg-muted" />
+          </div>
+        </div>
       ))}
     </div>
-  )
-}
-
-function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
-  return (
-    <Card className="rounded-2xl border-dashed border-border bg-card py-14 text-center">
-      <CardContent>
-        <Search className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-        <h2 className="mb-2 text-xl font-bold text-foreground">لا توجد نتائج</h2>
-        <p className="mx-auto max-w-md leading-7 text-muted-foreground">
-          لم نعثر على سيارات تطابق خيارات البحث الحالية. جرّب توسيع نطاق السعر أو إزالة الفلاتر.
-        </p>
-        {hasFilters && (
-          <Button onClick={onClear} className="mt-5 rounded-xl">مسح الفلاتر</Button>
-        )}
-      </CardContent>
-    </Card>
   )
 }

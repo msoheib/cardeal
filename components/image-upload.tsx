@@ -116,13 +116,13 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium">صور السيارة</label>
-        <span className="text-xs text-gray-500">{images.length} / {maxImages}</span>
+        <span className="num text-xs text-muted-foreground">{images.length} / {maxImages}</span>
       </div>
 
       {/* Image Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {images.map((url, index) => (
-          <div key={index} className="relative aspect-video rounded-lg overflow-hidden border bg-gray-100">
+          <div key={index} className="relative aspect-video overflow-hidden rounded-md border bg-muted">
             <Image
               src={url}
               alt={`صورة ${index + 1}`}
@@ -132,7 +132,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
             <button
               type="button"
               onClick={() => removeImage(index)}
-              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+              className="absolute end-1.5 top-1.5 rounded-sm bg-card/90 p-1 text-foreground shadow-sm transition-colors hover:bg-destructive hover:text-destructive-foreground"
             >
               <X className="w-4 h-4" />
             </button>
@@ -150,7 +150,7 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="aspect-video rounded-lg border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="aspect-video rounded-md border border-dashed border-input hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isUploading ? (
               <>
@@ -179,11 +179,11 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
 
       {/* Error Message */}
       {error && (
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       )}
 
       {/* Help Text */}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         يمكنك رفع حتى {maxImages} صور. الحجم الأقصى للملف 5 ميجابايت. الصيغ المدعومة: JPG, PNG, WebP, GIF
       </p>
     </div>

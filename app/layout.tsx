@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 
 const tajawal = Tajawal({
   subsets: ['arabic', 'latin'],
-  weight: ['400', '700'],
+  weight: ['400', '500', '700', '800'],
   variable: '--font-tajawal'
 })
 

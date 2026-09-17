@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowRight, CheckCircle, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { PageHeader } from '@/components/layout/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { toArabicError } from '@/lib/arabic-errors'
 import { getCurrentUser } from '@/lib/auth'
 import { supabase, User } from '@/lib/supabase'
@@ -132,8 +132,8 @@ export default function DealerApplyPage() {
 
   if (isChecking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="page flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -141,19 +141,16 @@ export default function DealerApplyPage() {
   const locked = application?.status === 'pending' || application?.status === 'approved'
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8" dir="rtl">
-      <div className="mx-auto max-w-2xl">
-        <Link href="/dashboard" className="mb-6 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
-          <ArrowRight className="h-4 w-4" />
-          العودة للوحة التحكم
-        </Link>
-
+    <div className="page-narrow space-y-6">
+      <PageHeader
+        eyebrow={<Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-foreground"><ArrowRight className="h-3.5 w-3.5" />لوحة التحكم</Link>}
+        title="طلب اعتماد تاجر"
+        description="بعد مراجعة بياناتك تُفعَّل صلاحيات إضافة المخزون وقبول العروض."
+      />
+      <div>
         <Card>
-          <CardHeader>
-            <CardTitle>طلب اعتماد تاجر</CardTitle>
-          </CardHeader>
           <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-5 pt-5">
               {application?.status === 'pending' && (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
@@ -163,7 +160,7 @@ export default function DealerApplyPage() {
               )}
 
               {application?.status === 'approved' && (
-                <Alert className="border-green-200 bg-green-50 text-green-900">
+                <Alert className="border-transparent bg-status-success text-status-success-foreground">
                   <CheckCircle className="h-4 w-4" />
                   <AlertTitle>تمت الموافقة</AlertTitle>
                   <AlertDescription>يمكنك استخدام لوحة تحكم التاجر الآن.</AlertDescription>
@@ -243,10 +240,6 @@ export default function DealerApplyPage() {
                 />
               </div>
 
-              <Textarea
-                disabled
-                value="تتم مراجعة بيانات التاجر قبل تفعيل صلاحيات إضافة المخزون وقبول العروض."
-              />
             </CardContent>
             <CardFooter>
               <Button type="submit" className="w-full" disabled={locked || isSubmitting}>

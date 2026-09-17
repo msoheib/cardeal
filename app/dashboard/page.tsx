@@ -2,75 +2,56 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getCurrentUser, getUserRole } from '@/lib/auth'
+import { Loader2 } from 'lucide-react'
+import { getCurrentUser } from '@/lib/auth'
+import { User } from '@/lib/supabase'
 import { BuyerDashboard } from '@/components/buyer-dashboard'
 import { DealerDashboard } from '@/components/dealer-dashboard'
-import { AdminDashboard } from '@/components/admin-dashboard'
-import { Card, CardContent } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
-import { CarsBrowseContent } from '@/components/cars-browse-content'
+import { AdminConsole } from '@/components/admin-console/admin-console'
+import { EmptyState } from '@/components/ui/empty-state'
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    const loadUserData = async () => {
-      const currentUser = await getCurrentUser()
-      const role = await getUserRole()
-
+    getCurrentUser().then((currentUser) => {
       if (!currentUser) {
-        router.push('/auth/login')
+        router.push('/auth/login?redirect=/dashboard')
         return
       }
-
       setUser(currentUser)
-      setUserRole(role)
       setIsLoading(false)
-    }
-
-    loadUserData()
+    })
   }, [router])
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
-      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-        <Card className='w-full max-w-md'>
-          <CardContent className='flex items-center justify-center p-8'>
-            <Loader2 className='w-8 h-8 animate-spin text-green-600' />
-            <span className='mr-3 text-lg'>جاري تحميل لوحة التحكم...</span>
-          </CardContent>
-        </Card>
+      <div className="page flex min-h-[60vh] items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        جاري تحميل لوحة التحكم...
       </div>
     )
   }
 
-  const renderDashboard = () => {
-    switch (userRole) {
-      case 'buyer':
-        return (
-          <div className='bg-gray-50 space-y-10'>
-            <BuyerDashboard user={user} />
-            <CarsBrowseContent showDashboardLink={false} />
+  switch (user.user_type) {
+    case 'buyer':
+      return <BuyerDashboard user={user} />
+    case 'dealer':
+      return <DealerDashboard user={user} />
+    case 'admin':
+      return <AdminConsole user={user} />
+    default:
+      return (
+        <div className="page">
+          <div className="surface">
+            <EmptyState
+              title="تعذّر تحديد نوع حسابك"
+              description="سجّل الدخول من جديد أو تواصل مع فريق الدعم."
+            />
           </div>
-        )
-      case 'dealer':
-        return <DealerDashboard user={user} />
-      case 'admin':
-        return <AdminDashboard user={user} />
-      default:
-        return (
-          <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
-            <div className='text-center space-y-4'>
-              <h2 className='text-2xl font-bold text-gray-900'>مرحباً بك في لوحة التحكم</h2>
-              <p className='text-gray-600'>تعذّر تحديد نوع حسابك. يرجى تسجيل الدخول من جديد أو التواصل مع فريق الدعم.</p>
-            </div>
-          </div>
-        )
-    }
+        </div>
+      )
   }
-
-  return renderDashboard()
 }

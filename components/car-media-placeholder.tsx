@@ -37,40 +37,29 @@ export function getVehicleSwatch(color?: string | null) {
 
 export function CarMediaPlaceholder({ config, variant = 'card', className }: CarMediaPlaceholderProps) {
   const isDetail = variant === 'detail'
-  const colorLabel = localizeVehicleText(config.color) || 'حسب التوفر'
-  const trimLabel = localizeVehicleText(config.trim || config.variant) || 'قياسي'
-  const originLabel = localizeVehicleText(config.origin_locale) || 'غير محدد'
-  const swatchColor = getVehicleSwatch(config.color)
   const title = vehicleTitle(config)
 
   return (
     <div
-      className={cn(
-        'flex h-full w-full items-center justify-center bg-muted text-center',
-        isDetail ? 'min-h-[22rem] p-8' : 'p-5',
-        className
-      )}
+      role="img"
+      aria-label={`${title} - لا توجد صورة بعد`}
+      className={cn('flex h-full w-full flex-col items-center justify-center gap-2 bg-muted text-muted-foreground', className)}
     >
-      <div className="flex max-w-md flex-col items-center gap-3">
-        <span
-          className={cn('rounded-full border border-border shadow-sm', isDetail ? 'h-14 w-14' : 'h-11 w-11')}
-          style={{ backgroundColor: swatchColor }}
-          aria-label={`لون السيارة ${colorLabel}`}
-        />
-        <div>
-          <p className={cn('font-semibold text-foreground', isDetail ? 'text-lg' : 'text-sm')}>صورة غير متاحة</p>
-          {isDetail ? (
-            <>
-              <h2 className="mt-3 text-2xl font-bold text-foreground sm:text-3xl">{title}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {trimLabel} · {colorLabel} · {originLabel}
-              </p>
-            </>
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground">سيتم عرض صور المورد عند توفرها</p>
-          )}
-        </div>
-      </div>
+      <svg
+        viewBox="0 0 64 28"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={cn('opacity-40', isDetail ? 'w-32' : 'w-20')}
+        aria-hidden="true"
+      >
+        <path d="M3 21h58M7 21l4.5-8c1-1.8 2.8-3 4.9-3h24.2c2.3 0 4.4 1 5.8 2.8L53 21" />
+        <circle cx="17" cy="22" r="3.5" />
+        <circle cx="47" cy="22" r="3.5" />
+      </svg>
+      <span className={cn('font-medium', isDetail ? 'text-sm' : 'text-xs')}>لا توجد صورة بعد</span>
     </div>
   )
 }

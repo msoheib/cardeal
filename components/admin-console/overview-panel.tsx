@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Stat, StatGroup, type StatTone } from '@/components/ui/stat'
+import { Section } from '@/components/layout/page-header'
 import { adminFetch } from '@/lib/admin-console/client'
 import { ResourceKey, RESOURCES } from '@/lib/admin-console/resources'
 import { formatCurrencySar, formatGregorianDate, formatGregorianTime, formatNumber } from '@/lib/format'
@@ -58,10 +59,10 @@ export function OverviewPanel({ onOpen }: { onOpen: (key: ResourceKey, options?:
   }
   if (error && !data) {
     return (
-      <Card><CardContent className="flex flex-col items-start gap-3 p-6">
-        <p className="font-semibold text-status-danger-foreground">{error}</p>
-        <Button variant="outline" onClick={load}>إعادة المحاولة</Button>
-      </CardContent></Card>
+      <div className="surface flex flex-col items-start gap-3 p-5">
+        <p className="font-medium text-status-danger-foreground">{error}</p>
+        <Button variant="outline" size="sm" onClick={load}>إعادة المحاولة</Button>
+      </div>
     )
   }
   if (!data) return null
@@ -86,36 +87,40 @@ export function OverviewPanel({ onOpen }: { onOpen: (key: ResourceKey, options?:
     { label: 'مشترون · تجار · مدراء', value: `${formatNumber(data.users.buyers)} · ${formatNumber(data.users.dealers)} · ${formatNumber(data.users.admins)}`, open: ['users'] },
   ]
 
+  const tone = (t?: Tone): StatTone => (t === 'warning' ? 'warning' : t === 'danger' ? 'danger' : 'default')
+  const renderTiles = (tiles: Tile[]) =>
+    tiles.map((tile) => (
+      <Stat
+        key={tile.label}
+        label={tile.label}
+        value={tile.value}
+        hint={tile.hint}
+        tone={tone(tile.tone)}
+        onClick={tile.open ? () => onOpen(tile.open![0], tile.open![1]) : undefined}
+      />
+    ))
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-extrabold text-foreground">المراقبة</h2>
-          <p className="text-sm">اضغط أي مؤشر لفتح السجلات المطابقة وإدارتها.</p>
-        </div>
-        <Button variant="outline" onClick={load} disabled={loading} className="rounded-xl">
-          <RefreshCw className={cn('ml-2 h-4 w-4', loading && 'animate-spin')} />
-          تحديث
-        </Button>
-      </div>
+      <Section
+        title="تحتاج انتباهك"
+        description="اضغط أي رقم لفتح السجلات المطابقة."
+        actions={
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            تحديث
+          </Button>
+        }
+      >
+        <StatGroup columns={5}>{renderTiles(attention)}</StatGroup>
+      </Section>
 
-      <section className="space-y-3">
-        <h3 className="flex items-center gap-2 text-base font-bold text-foreground"><AlertTriangle className="h-4 w-4 text-status-warning-foreground" />تحتاج انتباهك</h3>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {attention.map((tile) => <TileCard key={tile.label} tile={tile} onOpen={onOpen} />)}
-        </div>
-      </section>
+      <Section title="الأرقام الإجمالية">
+        <StatGroup columns={3}>{renderTiles(totals)}</StatGroup>
+      </Section>
 
-      <section className="space-y-3">
-        <h3 className="text-base font-bold text-foreground">الأرقام الإجمالية</h3>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {totals.map((tile) => <TileCard key={tile.label} tile={tile} onOpen={onOpen} />)}
-        </div>
-      </section>
-
-      <Card className="rounded-2xl">
-        <CardHeader><CardTitle className="text-base">آخر النشاطات</CardTitle></CardHeader>
-        <CardContent className="p-0">
+      <Section title="آخر النشاطات">
+        <div className="surface overflow-hidden">
           {data.activity.length === 0 ? (
             <p className="p-6 text-center text-sm">لا توجد نشاطات بعد.</p>
           ) : (
@@ -125,16 +130,16 @@ export function OverviewPanel({ onOpen }: { onOpen: (key: ResourceKey, options?:
                   <button
                     type="button"
                     onClick={() => onOpen(item.resource)}
-                    className="flex w-full flex-col gap-1 px-5 py-3 text-right hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex w-full flex-col gap-1 px-4 py-3 text-start hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-semibold text-foreground">{item.title}</span>
+                      <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {RESOURCES[item.resource].label} · {formatGregorianDate(item.at)} {formatGregorianTime(item.at)}{item.note ? ` · ${item.note}` : ''}
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
-                      {item.amount ? <span className="text-sm font-bold text-foreground">{formatCurrencySar(Number(item.amount))}</span> : null}
+                      {item.amount ? <span className="num text-sm font-bold text-foreground">{formatCurrencySar(Number(item.amount))}</span> : null}
                       <AdminStatus resource={RESOURCES[item.resource]} field="status" value={item.status} />
                     </span>
                   </button>
@@ -142,31 +147,8 @@ export function OverviewPanel({ onOpen }: { onOpen: (key: ResourceKey, options?:
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </Section>
     </div>
-  )
-}
-
-function TileCard({ tile, onOpen }: { tile: Tile; onOpen: (key: ResourceKey, options?: OpenResourceOptions) => void }) {
-  const body = (
-    <>
-      <span className="text-sm text-muted-foreground">{tile.label}</span>
-      <span className="text-2xl font-extrabold text-foreground">{tile.value}</span>
-      {tile.hint && <span className="text-xs text-muted-foreground">{tile.hint}</span>}
-    </>
-  )
-  const className = cn(
-    'flex h-full flex-col items-start gap-1 rounded-2xl border p-4 text-right transition-colors',
-    tile.tone === 'warning' && 'border-transparent bg-status-warning',
-    tile.tone === 'danger' && 'border-transparent bg-status-danger',
-    (!tile.tone || tile.tone === 'default') && 'border-border bg-card'
-  )
-  if (!tile.open) return <div className={className}>{body}</div>
-  const [key, options] = tile.open
-  return (
-    <button type="button" onClick={() => onOpen(key, options)} className={cn(className, 'hover:border-primary')}>
-      {body}
-    </button>
   )
 }

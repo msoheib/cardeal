@@ -33,7 +33,7 @@ function PayContent() {
           <CardTitle>إتمام الدفع</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="rounded-md bg-gray-50 p-4 text-sm text-gray-700">
+          <div className="rounded-md bg-muted p-4 text-sm text-foreground">
             رسوم الالتزام الثابتة: 500 ريال
           </div>
 

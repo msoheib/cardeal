@@ -3,16 +3,19 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { vehicleTitle } from '@/lib/arabic-display'
-import { formatCurrencySar, formatGregorianDate } from '@/lib/format'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Stat, StatGroup } from '@/components/ui/stat'
+import { PageHeader } from '@/components/layout/page-header'
+import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
+import { formatCurrencySar, formatGregorianDate, formatNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { approveReceivedOffer, getDealsByBuyer } from '@/lib/deals'
 import {
   createSupportTicket,
@@ -30,10 +33,8 @@ import {
   Clock,
   CheckCircle,
   LogOut,
-  Eye,
   RefreshCw,
   Lock,
-  Phone,
   Loader2,
   LifeBuoy,
   CreditCard
@@ -170,327 +171,231 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
     await loadDashboardData()
   }
 
+  const unpaidBids = activeBids.filter((bid) => bid.status === 'pending' && !bid.commitment_fee_paid)
+  const waitingBids = activeBids.filter((bid) => bid.status === 'pending' && bid.commitment_fee_paid)
+  const dealsToConfirm = deals.filter((deal) => deal.status === 'pending_payment')
+  const completedDeals = deals.filter((deal) => deal.status === 'completed')
+  const payLink = (bid: Bid) => `/cars/${bid.car_configuration_id}?pay_bid=${bid.id}`
+
   return (
-    <div className="bg-gray-50">
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">مرحبا، {user.full_name}</h1>
-            <p className="text-sm text-gray-600">تابع مزايداتك وطلبات السيارات حتى موافقتك النهائية.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dealer/apply">
-              <Button variant="outline" size="sm">
-                <Building2 className="w-4 h-4 mr-2" />
-                طلب حساب تاجر
-              </Button>
-            </Link>
-            <Link href="/cars">
-              <Button variant="outline" size="sm">
-                <Car className="w-4 h-4 mr-2" />
-                تصفح السيارات
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              تسجيل الخروج
+    <div className="page space-y-6">
+      <PageHeader
+        eyebrow={`مرحباً، ${user.full_name}`}
+        title="طلباتي"
+        description="تابع عروضك حتى يقبلها تاجر، ثم أكّد الصفقة لتظهر بيانات التواصل."
+        actions={
+          <>
+            <Button asChild size="sm">
+              <Link href="/cars"><Car className="h-4 w-4" />تصفح السيارات</Link>
             </Button>
-          </div>
-          </CardContent>
-        </Card>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dealer/apply"><Building2 className="h-4 w-4" />حساب تاجر</Link>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" />خروج
+            </Button>
+          </>
+        }
+      />
 
-        <Tabs defaultValue="bids" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="bids">مزايداتي</TabsTrigger>
-            <TabsTrigger value="deals">تتبع الطلبات</TabsTrigger>
+      <StatGroup>
+        <Stat label="بانتظار الدفع" value={formatNumber(unpaidBids.length)} tone={unpaidBids.length ? 'warning' : 'default'} hint="أكمل دفع رسوم الالتزام" />
+        <Stat label="بانتظار قبول التجار" value={formatNumber(waitingBids.length)} />
+        <Stat label="بانتظار تأكيدك" value={formatNumber(dealsToConfirm.length)} tone={dealsToConfirm.length ? 'warning' : 'default'} hint="قبل تاجر عرضك" />
+        <Stat label="صفقات مكتملة" value={formatNumber(completedDeals.length)} />
+      </StatGroup>
+
+      <Tabs defaultValue={dealsToConfirm.length ? 'deals' : 'bids'}>
+        <div className="flex items-end justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="bids">العروض <span className="num ms-1 text-muted-foreground">{formatNumber(activeBids.length)}</span></TabsTrigger>
+            <TabsTrigger value="deals">الصفقات <span className="num ms-1 text-muted-foreground">{formatNumber(deals.length)}</span></TabsTrigger>
           </TabsList>
+          <Button variant="ghost" size="sm" onClick={loadDashboardData} disabled={isLoading}>
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+            <span className="sr-only sm:not-sr-only">تحديث</span>
+          </Button>
+        </div>
 
-          <TabsContent value="bids" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">المزايدات النشطة</h2>
-              <Button variant="outline" size="sm" onClick={loadDashboardData}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                تحديث
-              </Button>
+        <TabsContent value="bids" className="mt-4">
+          {isLoading && activeBids.length === 0 ? (
+            <div className="surface h-40 animate-pulse bg-muted/40" aria-busy="true" />
+          ) : activeBids.length === 0 ? (
+            <div className="surface">
+              <EmptyState
+                icon={Clock}
+                title="لا توجد عروض نشطة"
+                description="اختر سيارة من السوق وقدّم سعرك."
+                action={<Button asChild size="sm"><Link href="/cars">تصفح السيارات</Link></Button>}
+              />
             </div>
+          ) : (
+            <div className="surface overflow-hidden">
+              <Table className="hidden md:table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>السيارة</TableHead>
+                    <TableHead className="text-end">عرضك</TableHead>
+                    <TableHead className="text-end">سعر الوكالة</TableHead>
+                    <TableHead>الحالة</TableHead>
+                    <TableHead>التاريخ</TableHead>
+                    <TableHead className="w-40"><span className="sr-only">إجراء</span></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeBids.map((bid) => {
+                    const config = (bid as any).configuration
+                    const unpaid = bid.status === 'pending' && !bid.commitment_fee_paid
+                    return (
+                      <TableRow key={bid.id}>
+                        <TableCell className="font-medium text-foreground">
+                          {vehicleTitle(config || {})}
+                          {config?.color && <span className="block text-xs font-normal text-muted-foreground">{localizeVehicleText(config.color)}</span>}
+                        </TableCell>
+                        <TableCell className="text-end font-bold text-foreground">{formatCurrencySar(bid.bid_price)}</TableCell>
+                        <TableCell className="text-end text-muted-foreground">{formatCurrencySar(config?.msrp || 0)}</TableCell>
+                        <TableCell><StatusBadge kind="bid" status={bid.status} unpaid={!bid.commitment_fee_paid} /></TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatGregorianDate(bid.created_at)}</TableCell>
+                        <TableCell className="text-end">
+                          {unpaid ? (
+                            <Button asChild size="sm"><Link href={payLink(bid)}><CreditCard className="h-4 w-4" />إكمال الدفع</Link></Button>
+                          ) : (
+                            <Button asChild size="sm" variant="ghost"><Link href={`/cars/${bid.car_configuration_id}`}>عرض السيارة</Link></Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
 
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : activeBids.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">لا توجد مزايدات نشطة</h3>
-                  <p className="text-gray-600 mb-4">ابدأ بتصفح السيارات ووضع مزايداتك.</p>
-                  <Link href="/cars">
-                    <Button>تصفح السيارات</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
+              <ul className="divide-y divide-border md:hidden">
                 {activeBids.map((bid) => {
                   const config = (bid as any).configuration
+                  const unpaid = bid.status === 'pending' && !bid.commitment_fee_paid
                   return (
-                    <Card key={bid.id}>
-                      <CardContent className="p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-4 mb-2">
-                              <h3 className="text-lg font-semibold">
-                                {vehicleTitle(config || {})}
-                              </h3>
-                              <StatusBadge kind="bid" status={bid.status} unpaid={!bid.commitment_fee_paid} />
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">مزايدتك:</span>
-                                <div className="font-semibold text-primary">
-                                  {formatCurrencySar(bid.bid_price)}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">سعر الوكالة:</span>
-                                <div className="font-semibold">
-                                  {formatCurrencySar(config?.msrp || 0)}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">الوفر المتوقع:</span>
-                                <div className="font-semibold text-primary">
-                                  {formatCurrencySar((config?.msrp || 0) - bid.bid_price)}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">رسوم الالتزام:</span>
-                                <div className={`font-semibold ${bid.commitment_fee_paid ? 'text-primary' : 'text-red-600'}`}>
-                                  {bid.commitment_fee_paid ? 'مدفوعة' : 'غير مدفوعة'}
-                                </div>
-                              </div>
-                            </div>
-
-                            {bid.status === 'accepted' && (
-                              <Alert className="mt-4">
-                                <CheckCircle className="w-4 h-4" />
-                                <AlertDescription>تم قبول مزايدتك. راجع تتبع الطلبات لتأكيد العرض وإظهار بيانات التواصل.</AlertDescription>
-                              </Alert>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col gap-2">
-                            {bid.status === 'pending' && !bid.commitment_fee_paid && (
-                              <Link href={`/cars/${bid.car_configuration_id}?pay_bid=${bid.id}`}>
-                                <Button size="sm" className="w-full">
-                                  <CreditCard className="w-4 h-4 mr-2" />
-                                  إكمال الدفع
-                                </Button>
-                              </Link>
-                            )}
-                            <Link href={`/cars/${bid.car_configuration_id}`}>
-                              <Button variant="outline" size="sm">
-                                <Eye className="w-4 h-4 mr-2" />
-                                عرض التفاصيل
-                              </Button>
-                            </Link>
-                          </div>
+                    <li key={bid.id} className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-foreground">{vehicleTitle(config || {})}</p>
+                          <p className="text-xs">{localizeVehicleText(config?.color)} · {formatGregorianDate(bid.created_at)}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="deals" className="space-y-4">
-            <h2 className="text-xl font-semibold">تتبع طلبات السيارات</h2>
-
-            {deals.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">لا توجد طلبات قيد التتبع بعد</h3>
-                  <p className="text-gray-600">عندما يقبل مورد مزايدتك سيظهر الطلب هنا لتأكيد العرض وإظهار بيانات التواصل.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {deals.map((deal) => {
-                  const config = (deal as any).configuration
-                  const dealer = deal.dealer as any
-                  const publicDealer = (deal as any).dealer_public
-                  const displayDealer = dealer || publicDealer
-                  const isApproved = deal.status === 'completed'
-                  const contactInfo = dealer?.contact_info || {}
-                  const dealTickets = supportTickets.filter((ticket) => ticket.deal_id === deal.id)
-                  const trackingSteps = [
-                    { label: 'تم إرسال العرض', done: true },
-                    { label: 'قبله المورد', done: true },
-                    { label: 'موافقتك على العرض', done: isApproved }
-                  ]
-
-                  return (
-                    <Card key={deal.id}>
-                      <CardContent className="p-6 space-y-4">
-                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <div className="flex items-center gap-3">
-                              <h3 className="text-lg font-semibold">{vehicleTitle(config || {})}</h3>
-                              <StatusBadge kind="deal" audience="buyer" status={deal.status} />
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {formatGregorianDate(deal.created_at)}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 text-sm">
-                          <div>
-                            <span className="text-gray-600">السعر النهائي:</span>
-                            <div className="font-semibold text-primary">{formatCurrencySar(deal.final_price)}</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">حالة الصفقة:</span>
-                            <div className="font-semibold"><StatusBadge kind="deal" audience="buyer" status={deal.status} /></div>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">الوفر المحقق:</span>
-                            <div className="font-semibold text-primary">{formatCurrencySar((config?.msrp || 0) - deal.final_price)}</div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                          {trackingSteps.map((step) => (
-                            <div
-                              key={step.label}
-                              className={`rounded-lg border p-3 ${step.done ? 'border-primary/20 bg-primary/5' : 'border-amber-200 bg-amber-50'}`}
-                            >
-                              <div className="flex items-center gap-2 text-sm font-semibold">
-                                {step.done ? (
-                                  <CheckCircle className="h-4 w-4 text-primary" />
-                                ) : (
-                                  <Clock className="h-4 w-4 text-amber-600" />
-                                )}
-                                {step.label}
-                              </div>
-                              <p className="mt-1 text-xs text-gray-600">
-                                {step.done ? 'مكتمل' : 'بانتظار الإجراء'}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-
-                        {isApproved ? (
-                          <div className="space-y-3">
-                            <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                <h4 className="font-semibold text-green-900 flex items-center gap-2">
-                                  <Phone className="h-4 w-4" />
-                                  معلومات المورد
-                                </h4>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setTicketDeal(deal)}
-                                  className="bg-white"
-                                >
-                                  <LifeBuoy className="ml-2 h-4 w-4" />
-                                  شكوى أو طلب استرداد
-                                </Button>
-                              </div>
-                              <div className="mt-3 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
-                                <div>
-                                  <span className="text-gray-600">اسم الشركة: </span>
-                                  <span className="font-medium">{displayDealer?.company_name || 'غير متوفر'}</span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">الجوال: </span>
-                                  <span className="font-medium" dir="ltr">{contactInfo.phone || 'غير متوفر'}</span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">المدينة: </span>
-                                  <span className="font-medium">{displayDealer?.city || 'غير متوفر'}</span>
-                                </div>
-                                {contactInfo.email && (
-                                  <div>
-                                    <span className="text-gray-600">البريد: </span>
-                                    <span className="font-medium" dir="ltr">{contactInfo.email}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {dealTickets.length > 0 && (
-                              <div className="rounded-lg border border-[#d8e7e7] bg-white p-4">
-                                <h4 className="mb-3 font-semibold text-gray-900">تذاكر هذا الطلب</h4>
-                                <div className="space-y-2">
-                                  {dealTickets.map((ticket) => (
-                                    <div key={ticket.id} className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 text-sm md:flex-row md:items-center md:justify-between">
-                                      <div>
-                                        <div className="font-semibold">
-                                          {SUPPORT_TICKET_REASONS[ticket.reason as SupportTicketReason] || ticket.reason}
-                                        </div>
-                                        <div className="text-gray-600">
-                                          طلب الاسترداد: {formatCurrencySar(ticket.requested_refund_amount || 0)}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <StatusBadge kind="ticket" status={ticket.status} />
-                                        <span className="text-xs text-gray-500">
-                                          {formatGregorianDate(ticket.created_at)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                        <StatusBadge kind="bid" status={bid.status} unpaid={!bid.commitment_fee_paid} />
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">عرضك <span className="num font-bold text-foreground">{formatCurrencySar(bid.bid_price)}</span></span>
+                        {unpaid ? (
+                          <Button asChild size="sm"><Link href={payLink(bid)}>إكمال الدفع</Link></Button>
                         ) : (
-                          <Alert className="border-amber-200 bg-amber-50">
-                            <Lock className="h-4 w-4 text-amber-700" />
-                            <AlertDescription className="flex flex-col gap-3 text-amber-950 md:flex-row md:items-center md:justify-between">
-                              <span>
-                                بيانات التواصل مخفية حتى توافق على العرض. بعد الموافقة ينتهي التتبع داخل المنصة ويمكنكم التواصل خارجياً عبر الجوال.
-                              </span>
-                              <Button
-                                size="sm"
-                                onClick={() => handleApproveOffer(deal.id)}
-                                disabled={approvingDealId === deal.id}
-                                className="shrink-0"
-                              >
-                                {approvingDealId === deal.id ? (
-                                  <>
-                                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                                    جاري التأكيد...
-                                  </>
-                                ) : (
-                                  'الموافقة وإظهار التواصل'
-                                )}
-                              </Button>
-                            </AlertDescription>
-                          </Alert>
+                          <Button asChild size="sm" variant="ghost"><Link href={`/cars/${bid.car_configuration_id}`}>عرض</Link></Button>
                         )}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </li>
                   )
                 })}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="deals" className="mt-4 space-y-3">
+          {deals.length === 0 ? (
+            <div className="surface">
+              <EmptyState
+                icon={TrendingUp}
+                title="لا توجد صفقات بعد"
+                description="عندما يقبل تاجر عرضك تظهر الصفقة هنا لتأكيدها وإظهار بيانات التواصل."
+              />
+            </div>
+          ) : (
+            deals.map((deal) => {
+              const config = (deal as any).configuration
+              const dealer = deal.dealer as any
+              const displayDealer = dealer || (deal as any).dealer_public
+              const isApproved = deal.status === 'completed'
+              const contactInfo = dealer?.contact_info || {}
+              const dealTickets = supportTickets.filter((ticket) => ticket.deal_id === deal.id)
+              const steps = [
+                { label: 'أرسلت العرض', done: true },
+                { label: 'قبله التاجر', done: true },
+                { label: 'أكّدت الصفقة', done: isApproved },
+              ]
+
+              return (
+                <article key={deal.id} className="surface">
+                  <header className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-base font-bold">{vehicleTitle(config || {})}</h3>
+                        <StatusBadge kind="deal" audience="buyer" status={deal.status} />
+                      </div>
+                      <p className="text-xs">{displayDealer?.company_name || 'تاجر موثّق'} · {formatGregorianDate(deal.created_at)}</p>
+                    </div>
+                    <div className="text-start sm:text-end">
+                      <p className="text-xs text-muted-foreground">السعر النهائي</p>
+                      <p className="num text-lg font-bold text-foreground">{formatCurrencySar(deal.final_price)}</p>
+                    </div>
+                  </header>
+
+                  <div className="space-y-4 p-4">
+                    <ol className="flex items-center gap-2 text-xs" aria-label="مراحل الصفقة">
+                      {steps.map((step, index) => (
+                        <li key={step.label} className="flex flex-1 items-center gap-2">
+                          <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full', step.done ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground')}>
+                            {step.done ? <CheckCircle className="h-3.5 w-3.5" /> : index + 1}
+                          </span>
+                          <span className={cn(step.done ? 'font-medium text-foreground' : 'text-muted-foreground')}>{step.label}</span>
+                          {index < steps.length - 1 && <span className="hidden h-px flex-1 bg-border sm:block" />}
+                        </li>
+                      ))}
+                    </ol>
+
+                    {isApproved ? (
+                      <>
+                        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                          <div><dt className="text-xs text-muted-foreground">التاجر</dt><dd className="font-medium text-foreground">{displayDealer?.company_name || 'غير متوفر'}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">الجوال</dt><dd className="font-medium text-foreground" dir="ltr">{contactInfo.phone || 'غير متوفر'}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">المدينة</dt><dd className="font-medium text-foreground">{displayDealer?.city || 'غير متوفر'}</dd></div>
+                          {contactInfo.email && <div><dt className="text-xs text-muted-foreground">البريد</dt><dd className="font-medium text-foreground" dir="ltr">{contactInfo.email}</dd></div>}
+                        </dl>
+
+                        {dealTickets.length > 0 && (
+                          <ul className="divide-y divide-border rounded-md border border-border text-sm">
+                            {dealTickets.map((ticket) => (
+                              <li key={ticket.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                                <span className="text-foreground">{SUPPORT_TICKET_REASONS[ticket.reason as SupportTicketReason] || ticket.reason}</span>
+                                <span className="flex items-center gap-2">
+                                  <span className="num text-xs text-muted-foreground">{formatCurrencySar(ticket.requested_refund_amount || 0)}</span>
+                                  <StatusBadge kind="ticket" status={ticket.status} />
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        <Button variant="outline" size="sm" onClick={() => setTicketDeal(deal)}>
+                          <LifeBuoy className="h-4 w-4" />
+                          شكوى أو طلب استرداد
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col gap-3 rounded-md bg-status-warning p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="flex gap-2 text-sm text-status-warning-foreground">
+                          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                          بيانات التواصل مخفية حتى تؤكد الصفقة. بعد التأكيد تتواصل مع التاجر مباشرة.
+                        </p>
+                        <Button size="sm" onClick={() => handleApproveOffer(deal.id)} disabled={approvingDealId === deal.id} className="shrink-0">
+                          {approvingDealId === deal.id ? <><Loader2 className="h-4 w-4 animate-spin" />جاري التأكيد...</> : 'تأكيد الصفقة'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              )
+            })
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={Boolean(ticketDeal)} onOpenChange={(open) => {
         if (!open) {
@@ -502,75 +407,48 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
         <DialogContent dir="rtl" className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>شكوى أو طلب استرداد</DialogTitle>
-            <DialogDescription>
-              صف المشكلة بوضوح. ستحدد المنصة مبلغ الاسترداد تلقائياً حسب سبب التذكرة.
-            </DialogDescription>
+            <DialogDescription>صف المشكلة بوضوح. يُحدَّد مبلغ الاسترداد حسب سبب التذكرة.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>سبب التذكرة</Label>
-              <Select
-                value={ticketReason}
-                onValueChange={(value) => setTicketReason(value as SupportTicketReason)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر السبب" />
-                </SelectTrigger>
+            <div className="space-y-1.5">
+              <Label htmlFor="ticket-reason">سبب التذكرة</Label>
+              <Select value={ticketReason} onValueChange={(value) => setTicketReason(value as SupportTicketReason)}>
+                <SelectTrigger id="ticket-reason"><SelectValue placeholder="اختر السبب" /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(SUPPORT_TICKET_REASONS) as SupportTicketReason[]).map((reason) => (
-                    <SelectItem key={reason} value={reason}>
-                      {SUPPORT_TICKET_REASONS[reason]}
-                    </SelectItem>
+                    <SelectItem key={reason} value={reason}>{SUPPORT_TICKET_REASONS[reason]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs">
+                {ticketReason === 'car_damaged'
+                  ? `الاسترداد المطلوب: كامل مبلغ الصفقة ${formatCurrencySar(ticketDeal?.final_price || 0)}.`
+                  : ticketReason === 'other'
+                    ? 'شكوى عامة بدون مبلغ استرداد تلقائي.'
+                    : 'الاسترداد المطلوب: رسوم الالتزام 500 ر.س.'}
+              </p>
             </div>
 
-            <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-              {ticketReason === 'car_damaged'
-                ? `الاسترداد المطلوب لهذا السبب سيكون كامل مبلغ الصفقة: ${formatCurrencySar(ticketDeal?.final_price || 0)}.`
-                : ticketReason === 'other'
-                  ? 'هذه شكوى عامة بدون مبلغ استرداد تلقائي. يمكن للإدارة مراجعتها وتحديث حالتها.'
-                  : 'الاسترداد المطلوب لهذا السبب سيكون رسوم الالتزام: 500 ر.س.'}
-            </div>
-
-            <div className="space-y-2">
-              <Label>تفاصيل المشكلة</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="ticket-description">تفاصيل المشكلة</Label>
               <Textarea
+                id="ticket-description"
                 value={ticketDescription}
                 onChange={(event) => setTicketDescription(event.target.value)}
-                placeholder="اكتب ما حدث، تاريخ التواصل، وأي تفاصيل تساعد فريق الإدارة..."
+                placeholder="ما الذي حدث، ومتى تواصلت مع التاجر، وأي تفاصيل تساعد الإدارة."
                 className="min-h-[120px]"
               />
-              <p className="text-xs text-gray-500">الحد الأدنى 10 أحرف.</p>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                onClick={handleCreateTicket}
-                disabled={isSubmittingTicket || ticketDescription.trim().length < 10}
-                className="flex-1"
-              >
-                {isSubmittingTicket ? (
-                  <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    جاري الإرسال...
-                  </>
-                ) : (
-                  'إرسال التذكرة'
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTicketDeal(null)}
-                className="flex-1"
-              >
-                إلغاء
-              </Button>
+              <p className="text-xs">10 أحرف على الأقل.</p>
             </div>
           </div>
+
+          <DialogFooter>
+            <Button onClick={handleCreateTicket} disabled={isSubmittingTicket || ticketDescription.trim().length < 10}>
+              {isSubmittingTicket ? <><Loader2 className="h-4 w-4 animate-spin" />جاري الإرسال...</> : 'إرسال التذكرة'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setTicketDeal(null)}>إلغاء</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

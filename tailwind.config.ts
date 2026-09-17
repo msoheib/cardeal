@@ -8,7 +8,20 @@ const config: Config = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    // One content width for every page: 1200px max, 16px/24px gutters.
+    container: {
+      center: true,
+      padding: { DEFAULT: '1rem', lg: '1.5rem' },
+      screens: { sm: '640px', md: '768px', lg: '1024px', xl: '1200px' },
+    },
     extend: {
+      fontFamily: {
+        sans: ['var(--font-tajawal)', 'Segoe UI', 'Tahoma', 'sans-serif'],
+      },
+      maxWidth: {
+        content: '1200px',
+        prose: '720px',
+      },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':
@@ -18,6 +31,10 @@ const config: Config = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        // Large radii are intentionally capped so ad-hoc classes stay crisp.
+        xl: 'var(--radius)',
+        '2xl': 'var(--radius)',
+        '3xl': 'var(--radius)',
       },
       colors: {
         background: 'hsl(var(--background))',

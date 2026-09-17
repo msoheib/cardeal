@@ -123,7 +123,7 @@ export default function MoyasarCheckout({ amountHalalas, description, bidId, car
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <span className="mr-2 text-sm text-muted-foreground">جاري تحميل نظام الدفع...</span>
+        <span className="ms-2 text-sm text-muted-foreground">جاري تحميل نظام الدفع...</span>
       </div>
     )
   }

@@ -81,7 +81,7 @@ export function RecordDialog({ resource, record, mode, open, onOpenChange, onSub
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto" dir="rtl">
-        <DialogHeader className="text-right sm:text-right">
+        <DialogHeader>
           <DialogTitle>{mode === 'create' ? `إضافة إلى ${resource.label}` : `تعديل سجل · ${resource.label}`}</DialogTitle>
           <DialogDescription>
             {record?.id ? <span dir="ltr" className="font-mono text-xs">{record.id}</span> : resource.description}
@@ -141,14 +141,14 @@ export function RecordDialog({ resource, record, mode, open, onOpenChange, onSub
           })}
         </form>
 
-        {error && <p role="alert" className="rounded-xl bg-status-danger p-3 text-sm text-status-danger-foreground">{error}</p>}
+        {error && <p role="alert" className="rounded-md bg-status-danger p-3 text-sm text-status-danger-foreground">{error}</p>}
 
-        <DialogFooter className="gap-2 sm:justify-start">
-          <Button type="submit" form="admin-record-form" disabled={saving} className="rounded-xl">
-            {saving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+        <DialogFooter>
+          <Button type="submit" form="admin-record-form" disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === 'create' ? 'إضافة' : 'حفظ التعديلات'}
           </Button>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">إلغاء</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

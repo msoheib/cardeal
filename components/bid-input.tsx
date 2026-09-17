@@ -89,7 +89,7 @@ export function BidInput({
   // For guests, show a login prompt instead of the bid form
   if (!userId) {
     return (
-      <Card className="rounded-2xl">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5 text-brand" />
@@ -97,19 +97,19 @@ export function BidInput({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-baseline justify-between rounded-xl bg-muted/60 p-4">
+          <div className="flex items-baseline justify-between">
             <span className="text-sm text-muted-foreground">سعر الوكالة</span>
-            <span className="text-2xl font-extrabold text-foreground">{formatCurrencySar(msrp)}</span>
+            <span className="num text-xl font-bold text-foreground">{formatCurrencySar(msrp)}</span>
           </div>
           <Alert className="border-transparent bg-status-warning text-status-warning-foreground">
             <AlertTriangle className="h-4 w-4 !text-status-warning-foreground" />
             <AlertDescription>سجّل الدخول لتقديم عرضك وحجز السيارة.</AlertDescription>
           </Alert>
           <div className="flex gap-2">
-            <Button asChild className="h-11 flex-1 rounded-xl">
+            <Button asChild className="flex-1">
               <Link href={`/auth/login?redirect=${encodeURIComponent(pathname || '')}`}>تسجيل الدخول</Link>
             </Button>
-            <Button asChild variant="outline" className="h-11 flex-1 rounded-xl">
+            <Button asChild variant="outline" className="flex-1">
               <Link href={`/auth/register?redirect=${encodeURIComponent(pathname || '')}`}>إنشاء حساب</Link>
             </Button>
           </div>
@@ -174,17 +174,17 @@ export function BidInput({
       : `قدّم عرضك وادفع ${formatCurrencySar(RESERVATION_FEE_SAR)}`
 
   return (
-    <Card className="rounded-2xl lg:shadow-lg">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Tag className="h-5 w-5 text-brand" />
           قدّم عرضك
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4">
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-muted-foreground">سعر الوكالة</span>
-          <span className="text-2xl font-extrabold text-foreground">{formatCurrencySar(msrp)}</span>
+          <span className="num text-xl font-bold text-foreground">{formatCurrencySar(msrp)}</span>
         </div>
 
         <div className="space-y-2">
@@ -197,9 +197,9 @@ export function BidInput({
                 onClick={() => { setSelectedConfigId(color.configuration_id); setError('') }}
                 disabled={locked || isSubmitting}
                 className={cn(
-                  'flex min-h-12 items-center justify-between rounded-xl border px-3 py-2 text-right transition-colors disabled:opacity-60',
+                  'flex min-h-10 items-center justify-between rounded-md border px-3 py-2 text-start text-sm transition-colors disabled:opacity-60',
                   selectedConfigId === color.configuration_id
-                    ? 'border-2 border-primary bg-primary/5'
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
                     : 'border-border bg-background hover:border-primary/50'
                 )}
                 aria-pressed={selectedConfigId === color.configuration_id}
@@ -232,7 +232,7 @@ export function BidInput({
                 type="number"
                 inputMode="numeric"
                 placeholder="أدخل المبلغ"
-                className="h-12 rounded-xl pl-14 text-lg font-bold"
+                className="num h-11 pe-12 text-base font-bold"
                 value={customAmount}
                 onChange={(e) => {
                   setCustomAmount(e.target.value)
@@ -240,7 +240,7 @@ export function BidInput({
                 }}
                 disabled={locked || isSubmitting}
               />
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ر.س</span>
+              <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ر.س</span>
             </div>
           </div>
 
@@ -258,7 +258,7 @@ export function BidInput({
                     }}
                     disabled={locked || isSubmitting}
                     className={cn(
-                      'min-h-9 rounded-full border px-3 py-1 text-sm',
+                      'min-h-8 rounded-sm border px-2.5 py-1 text-sm',
                       selectedSlot === slot
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border bg-background text-foreground hover:border-primary'
@@ -271,12 +271,12 @@ export function BidInput({
             </div>
           )}
 
-          <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3">
+          <div className="flex items-center justify-between border-y border-border py-3">
             <div>
               <p className="text-sm font-semibold text-foreground">رسوم الالتزام</p>
               <p className="text-xs text-muted-foreground">شاملة الضريبة، وتُخصم من السعر النهائي</p>
             </div>
-            <span className="text-lg font-extrabold text-primary">{formatCurrencySar(RESERVATION_FEE_SAR)}</span>
+            <span className="num text-base font-bold text-foreground">{formatCurrencySar(RESERVATION_FEE_SAR)}</span>
           </div>
 
           {error && (
@@ -288,12 +288,12 @@ export function BidInput({
 
           <Button
             type="submit"
-            className="h-12 w-full rounded-xl text-base font-bold"
+            size="lg" className="w-full"
             disabled={locked || !isValidBid || isSubmitting}
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 جاري المعالجة...
               </>
             ) : submitLabel}
@@ -306,19 +306,19 @@ export function BidInput({
 
       <Dialog open={showPayModal} onOpenChange={setShowPayModal}>
         <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto" dir="rtl">
-          <DialogHeader className="text-right sm:text-right">
+          <DialogHeader>
             <DialogTitle>تأكيد العرض ودفع الرسوم</DialogTitle>
             <DialogDescription>
               ادفع رسوم الالتزام ليُرسل عرضك إلى التجار الموثّقين.
             </DialogDescription>
           </DialogHeader>
 
-          <ol className="flex items-center gap-2" aria-label="خطوات الحجز">
+          <ol className="flex items-center gap-2 border-y border-border py-3" aria-label="خطوات الحجز">
             {CHECKOUT_STEPS.map((step, index) => (
               <li key={step} className="flex flex-1 items-center gap-2" aria-current={index === 1 ? 'step' : undefined}>
                 <span
                   className={cn(
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                     index === 0 && 'bg-primary text-primary-foreground',
                     index === 1 && 'bg-ink text-white',
                     index === 2 && 'bg-muted text-muted-foreground'
@@ -331,7 +331,7 @@ export function BidInput({
             ))}
           </ol>
 
-          <div className="space-y-2 rounded-xl border border-border p-4 text-sm">
+          <div className="space-y-2 text-sm">
             {vehicleName && (
               <p className="font-bold text-foreground">
                 {vehicleName}{selectedColor ? ` · ${localizeVehicleText(selectedColor)}` : ''}
@@ -349,7 +349,7 @@ export function BidInput({
             )}
             <div className="flex items-center justify-between border-t border-border pt-2">
               <span className="font-semibold text-foreground">المطلوب الآن</span>
-              <span className="text-xl font-extrabold text-primary">{formatCurrencySar(RESERVATION_FEE_SAR)}</span>
+              <span className="num text-lg font-bold text-foreground">{formatCurrencySar(RESERVATION_FEE_SAR)}</span>
             </div>
           </div>
 
@@ -363,9 +363,9 @@ export function BidInput({
             />
           )}
 
-          <div className="flex gap-3 rounded-xl bg-status-success p-3 text-xs leading-6 text-status-success-foreground">
+          <div className="flex gap-2 rounded-md bg-muted p-3 text-xs leading-5 text-foreground">
             <Lock className="mt-1 h-4 w-4 shrink-0" />
-            <p className="text-status-success-foreground">
+            <p className="text-foreground">
               دفع آمن عبر ميسّر، ولا نحتفظ ببيانات بطاقتك. تُخصم الرسوم من سعر السيارة النهائي، ولا تُسترد إذا قبل التاجر عرضك ثم انسحبت.
             </p>
           </div>
@@ -377,15 +377,15 @@ export function BidInput({
 
 function HowItWorks() {
   return (
-    <div className="space-y-3 rounded-xl border border-border p-4">
-      <p className="text-sm font-bold text-foreground">كيف يتم الشراء؟</p>
+    <div className="space-y-2 border-t border-border pt-4">
+      <p className="text-xs font-bold text-foreground">كيف يتم الشراء؟</p>
       <ol className="space-y-2">
         {HOW_IT_WORKS.map((step, index) => (
-          <li key={step} className="flex items-start gap-3 text-sm">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-status-success text-xs font-bold text-status-success-foreground">
+          <li key={step} className="flex items-start gap-2 text-xs">
+            <span className="num flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-foreground">
               {index + 1}
             </span>
-            <span className="leading-6 text-muted-foreground">{step}</span>
+            <span className="leading-5 text-muted-foreground">{step}</span>
           </li>
         ))}
       </ol>

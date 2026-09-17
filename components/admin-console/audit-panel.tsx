@@ -40,7 +40,7 @@ export function AuditPanel() {
   }, [])
 
   return (
-    <Card className="rounded-2xl">
+    <Card>
       <CardHeader>
         <CardTitle>سجل التدقيق</CardTitle>
         <p className="text-sm">آخر 100 عملية تمت من لوحة الإدارة الشاملة.</p>
@@ -51,7 +51,7 @@ export function AuditPanel() {
         ) : error ? (
           <p className="text-status-danger-foreground">{error}</p>
         ) : missing ? (
-          <p className="rounded-xl bg-status-warning p-4 text-sm text-status-warning-foreground">
+          <p className="rounded-md bg-status-warning p-4 text-sm text-status-warning-foreground">
             جدول سجل التدقيق غير موجود بعد. طبّق ملف الترحيل <span dir="ltr" className="font-mono">20260917140000_admin_audit_log.sql</span> ليبدأ تسجيل العمليات.
           </p>
         ) : rows.length === 0 ? (
@@ -61,12 +61,12 @@ export function AuditPanel() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">الوقت</TableHead>
-                  <TableHead className="text-right">المدير</TableHead>
-                  <TableHead className="text-right">العملية</TableHead>
-                  <TableHead className="text-right">القسم</TableHead>
-                  <TableHead className="text-right">السجلات</TableHead>
-                  <TableHead className="text-right">التغييرات</TableHead>
+                  <TableHead>الوقت</TableHead>
+                  <TableHead>المدير</TableHead>
+                  <TableHead>العملية</TableHead>
+                  <TableHead>القسم</TableHead>
+                  <TableHead>السجلات</TableHead>
+                  <TableHead>التغييرات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

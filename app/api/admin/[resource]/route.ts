@@ -112,6 +112,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     const values = sanitizeValues(resource, body?.values, 'update')
+
+    // Ticket status changes must go through review_support_ticket: approving a
+    // refund ticket also refunds the commitment fee and the deal.
+    if (resource.key === 'support_tickets' && 'status' in values) {
+      return NextResponse.json(await reviewTickets(req, ctx, ids, values))
+    }
+
     if (resource.key === 'users' && 'user_type' in values && ids.includes(ctx.adminId) && values.user_type !== 'admin') {
       throw new AdminApiError(400, 'لا يمكنك إزالة صلاحية المدير من حسابك')
     }
@@ -167,12 +174,46 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
 }
 
 // The review RPCs check private.is_admin() against auth.uid(), so they run as the admin themself.
-async function reviewApplications(req: NextRequest, ctx: AdminContext, ids: string[], action: unknown, reason: unknown) {
-  if (action !== 'approve' && action !== 'reject') throw new AdminApiError(400, 'إجراء غير معروف')
-  const asAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+function clientAsAdmin(req: NextRequest) {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: req.headers.get('authorization') || '' } },
   })
+}
+
+async function reviewTickets(req: NextRequest, ctx: AdminContext, ids: string[], values: Record<string, unknown>) {
+  const { status, admin_notes: adminNotes, updated_at: _updatedAt, ...rest } = values
+  void _updatedAt
+  if (status === 'open') throw new AdminApiError(400, 'لا يمكن إعادة التذكرة إلى «مفتوحة»')
+
+  const asAdmin = clientAsAdmin(req)
+  const done: string[] = []
+  const failures: string[] = []
+  for (const id of ids) {
+    const { data, error } = await asAdmin.rpc('review_support_ticket', {
+      p_ticket_id: id,
+      p_status: status,
+      p_admin_notes: typeof adminNotes === 'string' ? adminNotes : null,
+    })
+    if (error || data?.success === false) failures.push(`${id}: ${error?.message || data?.error}`)
+    else done.push(id)
+  }
+
+  // Any other edited fields (reason, refund scope, amount…) are plain column updates.
+  if (done.length > 0 && Object.keys(rest).length > 0) {
+    const { error } = await ctx.db.from('support_tickets').update({ ...rest, updated_at: new Date().toISOString() }).in('id', done)
+    if (error) failures.push(dbError(error)!.message)
+  }
+
+  const audited = done.length > 0
+    ? await writeAudit(ctx, { action: 'update', resource: 'support_tickets', recordIds: done, changes: values })
+    : true
+  return { updated: done.length, failures, audited }
+}
+
+async function reviewApplications(req: NextRequest, ctx: AdminContext, ids: string[], action: unknown, reason: unknown) {
+  if (action !== 'approve' && action !== 'reject') throw new AdminApiError(400, 'إجراء غير معروف')
+  const asAdmin = clientAsAdmin(req)
 
   const done: string[] = []
   const failures: string[] = []
