@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -42,7 +43,8 @@ import {
   XCircle,
   FileText,
   Shield,
-  LifeBuoy
+  LifeBuoy,
+  ClipboardList
 } from 'lucide-react'
 
 interface AdminDashboardProps {
@@ -236,7 +238,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         <Card className="mb-8 border-border bg-card shadow-sm">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <Shield className="w-8 h-8 text-red-600" />
+              <Shield className="w-8 h-8 text-primary" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
                   لوحة الإدارة
@@ -245,7 +247,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild size="sm">
+                <Link href="/admin">
+                  <ClipboardList className="w-4 h-4 ml-2" />
+                  الإدارة الشاملة
+                </Link>
+              </Button>
               <Button variant="outline" size="sm" onClick={generateReport}>
                 <FileText className="w-4 h-4 mr-2" />
                 تقرير المبيعات
