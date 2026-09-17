@@ -36,7 +36,8 @@ import {
   Lock,
   Phone,
   Loader2,
-  LifeBuoy
+  LifeBuoy,
+  CreditCard
 } from 'lucide-react'
 
 interface BuyerDashboardProps {
@@ -327,6 +328,14 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
                           </div>
 
                           <div className="flex flex-col gap-2">
+                            {bid.status === 'pending' && !bid.commitment_fee_paid && (
+                              <Link href={`/cars/${bid.car_configuration_id}?pay_bid=${bid.id}`}>
+                                <Button size="sm" className="w-full">
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  إكمال الدفع
+                                </Button>
+                              </Link>
+                            )}
                             <Link href={`/cars/${bid.car_configuration_id}`}>
                               <Button variant="outline" size="sm">
                                 <Eye className="w-4 h-4 mr-2" />

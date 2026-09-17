@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ interface BidInputProps {
   userId?: string
   locked?: boolean
   priceSlots?: number[] // Aggregated slots from dealers
+  resumeBid?: { id: string; configId: string } // Unpaid bid to reopen checkout for
 }
 
 export function BidInput({
@@ -39,7 +40,8 @@ export function BidInput({
   onBidPlaced,
   userId,
   locked,
-  priceSlots = []
+  priceSlots = [],
+  resumeBid
 }: BidInputProps) {
   const pathname = usePathname()
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
@@ -50,6 +52,15 @@ export function BidInput({
   const [showPayModal, setShowPayModal] = useState(false)
   const [createdBidId, setCreatedBidId] = useState<string>('')
   const [selectedConfigId, setSelectedConfigId] = useState(colors.length === 1 ? colors[0].configuration_id : configId)
+  const resumedBidRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!resumeBid || resumedBidRef.current === resumeBid.id) return
+    resumedBidRef.current = resumeBid.id
+    setSelectedConfigId(resumeBid.configId)
+    setCreatedBidId(resumeBid.id)
+    setShowPayModal(true)
+  }, [resumeBid])
   
   // For guests, show a login prompt instead of the bid form
   if (!userId) {
@@ -266,7 +277,7 @@ export function BidInput({
                     جاري المعالجة...
                   </>
                 ) : currentUserBid ? (
-                  locked ? 'تم تأكيد الحجز' : 'تحديث الحجز'
+                  locked ? 'تم تأكيد الحجز' : 'تحديث الحجز وإكمال الدفع'
                 ) : (
                   'احجز الآن (ادفع الرسوم)'
                 )}

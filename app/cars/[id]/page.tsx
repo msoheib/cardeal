@@ -35,9 +35,11 @@ function CarDetailContent() {
   const [showPayResult, setShowPayResult] = useState(false)
   const [payStatus, setPayStatus] = useState<'success' | 'failed' | 'error' | null>(null)
 
-  const loadData = useCallback(async () => {
+  // silent: refresh data without swapping the page for the loader, which would
+  // unmount BidInput and close its payment dialog.
+  const loadData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!listingId) { setIsLoading(false); return }
-    setIsLoading(true)
+    if (!silent) setIsLoading(true)
     const listingResult = await getAvailableListingById(listingId)
     if (listingResult.canonicalId && listingResult.canonicalId !== listingId) {
       router.replace(`/cars/${listingResult.canonicalId}${window.location.search}`)
@@ -73,6 +75,13 @@ function CarDetailContent() {
     router.replace(`${url.pathname}${url.search}`)
   }
   const userBid = useMemo(() => bids.find((bid) => bid.buyer_id === currentUser?.id), [bids, currentUser?.id])
+  const payBidId = searchParams?.get('pay_bid')
+  const resumeBid = useMemo(() => {
+    const bid = bids.find((b) => b.id === payBidId && b.buyer_id === currentUser?.id)
+    return bid && bid.status === 'pending' && !bid.commitment_fee_paid && bid.car_configuration_id
+      ? { id: bid.id, configId: bid.car_configuration_id }
+      : undefined
+  }, [bids, payBidId, currentUser?.id])
 
   if (isLoading) return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">جاري تحميل السيارة...</div>
   if (!listing) return <div className="flex min-h-[60vh] items-center justify-center bg-gray-50 px-4"><div className="text-center"><h1 className="mb-4 text-2xl font-bold">السيارة غير موجودة أو غير متاحة</h1><Button asChild><Link href="/cars">العودة إلى السوق</Link></Button></div></div>
@@ -96,7 +105,7 @@ function CarDetailContent() {
             <Card><CardHeader><CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5 text-gray-500" />المواصفات</CardTitle></CardHeader><CardContent><div className="grid grid-cols-2 gap-4 md:grid-cols-4"><Spec icon={Calendar} label="سنة الصنع" value={listing.year} /><Spec icon={Gauge} label="الطراز / اسم الموديل" value={localizeVehicleText(listing.model)} /><Spec icon={Settings} label="مستوى التجهيز" value={localizeVehicleText(listing.variant)} /><Spec icon={MapPin} label="المنشأ" value={localizeVehicleText(listing.origin_locale)} /></div>{listing.description && <><Separator className="my-4" /><p className="leading-7 text-gray-600">{listing.description}</p></>}</CardContent></Card>
           </main>
           <aside className="space-y-6">
-            <BidInput configId={userBid?.car_configuration_id || ''} listingId={listing.id} colors={listing.colors} msrp={listing.display_price} currentUserBid={userBid?.bid_price} userId={currentUser?.id} locked={Boolean(userBid?.commitment_fee_paid)} onBidPlaced={() => loadData()} priceSlots={[]} />
+            <BidInput configId={userBid?.car_configuration_id || ''} listingId={listing.id} colors={listing.colors} msrp={listing.display_price} currentUserBid={userBid?.bid_price} userId={currentUser?.id} locked={Boolean(userBid?.commitment_fee_paid)} onBidPlaced={() => loadData({ silent: true })} resumeBid={resumeBid} priceSlots={[]} />
             <Card><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-gray-500"><Users className="h-4 w-4" />العروض المقدمة</CardTitle></CardHeader><CardContent className="space-y-2">{bids.length === 0 ? <p className="py-4 text-center text-sm text-gray-400">كن أول من يقدم عرضاً</p> : bids.slice(0, 10).map((bid, index) => <div key={bid.id} className="flex items-center justify-between rounded-md bg-gray-50 p-2 text-sm"><span>{index + 1}. {localizeVehicleText(colorByConfiguration.get(bid.car_configuration_id || ''))}</span><span className="font-semibold">{formatCurrencySar(bid.bid_price)}</span></div>)}</CardContent></Card>
             <Card><CardHeader><CardTitle className="flex items-center gap-2 text-sm text-gray-500"><TrendingUp className="h-4 w-4" />أفضل الصفقات المؤكدة</CardTitle></CardHeader><CardContent>{confirmedDeals.length === 0 ? <p className="py-4 text-center text-sm text-gray-400">لا توجد صفقات مؤكدة بعد</p> : confirmedDeals.slice(0, 5).map((deal) => <div key={deal.id} className="mb-2 flex justify-between rounded-md bg-green-50 p-2 text-sm"><span>صفقة مؤكدة</span><span className="font-bold text-green-700">{formatCurrencySar(deal.final_price)}</span></div>)}</CardContent></Card>
           </aside>

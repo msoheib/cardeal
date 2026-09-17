@@ -315,6 +315,36 @@ export const placeBid = async (params: {
     return { error: { message: 'يجب أن يكون مبلغ العرض أعلى من رسوم الالتزام' } }
   }
 
+  // Reuse the buyer's unpaid pending bid for this configuration so retries
+  // don't pile up orphan bids; the buyer just resumes payment on it.
+  const { data: unpaidBid, error: lookupError } = await supabase
+    .from('bids')
+    .select('id')
+    .eq('buyer_id', params.buyer_id)
+    .eq('car_configuration_id', params.car_configuration_id)
+    .eq('status', 'pending')
+    .eq('commitment_fee_paid', false)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (lookupError) return { data: null, error: lookupError }
+
+  if (unpaidBid) {
+    const { data, error } = await supabase
+      .from('bids')
+      .update({
+        bid_price: params.amount,
+        net_offer_amount: net_offer,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', unpaidBid.id)
+      .select()
+      .single()
+
+    return { data, error }
+  }
+
   const { data, error } = await supabase
     .from('bids')
     .insert({
