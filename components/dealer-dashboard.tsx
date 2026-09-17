@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/status-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { archiveDealerInventoryListing, getDealerInventory, getDealerOpportunities, restoreDealerInventoryListing } from '@/lib/cars'
@@ -142,21 +143,6 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
     await refreshInventory()
   }
 
-  const getDealStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending_payment':
-        return <Badge className="bg-amber-100 text-amber-800">بانتظار موافقة المشتري</Badge>
-      case 'completed':
-        return <Badge className="bg-primary/10 text-primary">تمت موافقة المشتري</Badge>
-      case 'cancelled':
-        return <Badge variant="destructive">ملغاة</Badge>
-      case 'refunded':
-        return <Badge variant="outline">مستردة</Badge>
-      default:
-        return <Badge variant="secondary">{status}</Badge>
-    }
-  }
-
   return (
     <div className="bg-gray-50 min-h-screen" dir="rtl">
       <main className="container mx-auto px-4 py-8 space-y-6">
@@ -198,7 +184,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                         <p className="text-sm font-medium text-gray-500">سياراتي المعروضة</p>
                         <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.filter((item) => item.status !== 'hidden').length}</h3>
                     </div>
-                    <CarIcon className="w-8 h-8 text-blue-500" />
+                    <CarIcon className="w-8 h-8 text-brand" />
                 </CardContent>
              </Card>
              <Card>
@@ -387,7 +373,7 @@ export function DealerDashboard({ user }: DealerDashboardProps) {
                                             </div>
                                             <div className="text-left">
                                                 <p className="font-bold text-primary">{formatCurrencySar(deal.final_price)}</p>
-                                                {getDealStatusBadge(deal.status)}
+                                                <StatusBadge kind="deal" status={deal.status} />
                                             </div>
                                         </div>
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { AlertCircle, ArrowLeft, Building2, Car, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Building2, Car, ChevronDown, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,8 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
   const [loadError, setLoadError] = useState(false)
   const [appliedConfigIds, setAppliedConfigIds] = useState<string[]>([])
   const [filters, setFilters] = useState<FiltersState>(defaultFilters)
+  // Phones: only search is visible until the buyer opens the filters.
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const loadCars = useCallback(async () => {
     setIsLoading(true)
@@ -140,10 +142,22 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
           <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-sm">
             <CardHeader className="border-b border-border bg-card px-5 py-4">
               <CardTitle className="flex items-center justify-between text-base text-foreground">
-                <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  aria-expanded={filtersOpen}
+                  aria-controls="market-filters"
+                  className="flex min-h-11 items-center gap-2 rounded-xl lg:pointer-events-none lg:min-h-0"
+                >
                   <SlidersHorizontal className="h-4 w-4 text-primary" />
                   فلترة السوق
-                </span>
+                  {hasFilters && (
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
+                      {formatNumber(activeFilters.length)}
+                    </span>
+                  )}
+                  <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform lg:hidden', filtersOpen && 'rotate-180')} />
+                </button>
                 {hasFilters && (
                   <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="rounded-xl text-muted-foreground">
                     <X className="ml-1 h-4 w-4" />
@@ -152,13 +166,14 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5 p-5">
+            <CardContent className="space-y-5 p-4 lg:p-5">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">بحث سريع</label>
+                <label className="sr-only text-sm font-semibold text-foreground lg:not-sr-only">بحث سريع</label>
                 <div className="relative">
                   <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="ابحث بالماركة أو الطراز"
+                    aria-label="بحث سريع"
                     value={filters.search}
                     onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
                     className="h-11 rounded-xl bg-background pr-11"
@@ -166,6 +181,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
                 </div>
               </div>
 
+              <div id="market-filters" className={cn('space-y-5', !filtersOpen && 'hidden lg:block')}>
               <FilterSelect
                 label="الماركة"
                 value={filters.make}
@@ -213,6 +229,7 @@ export function CarsBrowseContent({ showDashboardLink = true }: CarsBrowseConten
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   معلومات التواصل تظهر بعد قبول العرض فقط.
                 </p>
+              </div>
               </div>
 
             </CardContent>

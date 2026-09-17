@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { DollarSign, AlertTriangle, CheckCircle, Loader2, Palette } from 'lucide-react'
+import { AlertTriangle, Check, CheckCircle, Clock, Loader2, Lock, Palette, Tag } from 'lucide-react'
 import { placeBid } from '@/lib/cars'
 import { toArabicError } from '@/lib/arabic-errors'
 import { formatCurrencySar } from '@/lib/format'
@@ -17,10 +17,12 @@ import { useToast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
 import { AvailableColorStock } from '@/lib/supabase'
 import { localizeVehicleText } from '@/lib/arabic-display'
+import { cn } from '@/lib/utils'
 
 interface BidInputProps {
   configId: string
   listingId: string
+  vehicleName?: string
   colors: AvailableColorStock[]
   msrp: number
   currentUserBid?: number
@@ -28,12 +30,33 @@ interface BidInputProps {
   userId?: string
   locked?: boolean
   priceSlots?: number[] // Aggregated slots from dealers
-  resumeBid?: { id: string; configId: string } // Unpaid bid to reopen checkout for
+  resumeBid?: { id: string; configId: string; price?: number } // Unpaid bid to reopen checkout for
+}
+
+const RESERVATION_FEE_SAR = 500
+const RESERVATION_FEE_HALALAS = RESERVATION_FEE_SAR * 100
+
+const HOW_IT_WORKS = [
+  'اختر اللون وحدد قيمة عرضك.',
+  `ادفع ${formatCurrencySar(RESERVATION_FEE_SAR)} رسوم التزام تُخصم من سعر السيارة.`,
+  'يُرسل عرضك للتجار الموثّقين، وأول تاجر يقبل يتواصل معك.',
+]
+
+const CHECKOUT_STEPS = ['العرض', 'الدفع', 'التاجر']
+
+function SecurePaymentNote({ className }: { className?: string }) {
+  return (
+    <p className={cn('flex items-center justify-center gap-2 text-xs text-muted-foreground', className)}>
+      <Lock className="h-3.5 w-3.5 shrink-0" />
+      دفع آمن عبر ميسّر · مدى · Visa · Mastercard
+    </p>
+  )
 }
 
 export function BidInput({
   configId,
   listingId,
+  vehicleName,
   colors,
   msrp,
   currentUserBid,
@@ -58,71 +81,56 @@ export function BidInput({
     if (!resumeBid || resumedBidRef.current === resumeBid.id) return
     resumedBidRef.current = resumeBid.id
     setSelectedConfigId(resumeBid.configId)
+    if (resumeBid.price) setCustomAmount(resumeBid.price.toString())
     setCreatedBidId(resumeBid.id)
     setShowPayModal(true)
   }, [resumeBid])
-  
+
   // For guests, show a login prompt instead of the bid form
   if (!userId) {
     return (
-      <Card>
+      <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-primary" />
+            <Tag className="h-5 w-5 text-brand" />
             قدّم عرضك
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">سعر الوكالة</span>
-              <span className="text-lg font-bold text-gray-900">{formatCurrencySar(msrp)}</span>
-            </div>
+          <div className="flex items-baseline justify-between rounded-xl bg-muted/60 p-4">
+            <span className="text-sm text-muted-foreground">سعر الوكالة</span>
+            <span className="text-2xl font-extrabold text-foreground">{formatCurrencySar(msrp)}</span>
           </div>
-          <Alert className="bg-amber-50 border-amber-200">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <AlertDescription className="text-amber-800">
-              يجب تسجيل الدخول لتقديم عرض
-            </AlertDescription>
+          <Alert className="border-transparent bg-status-warning text-status-warning-foreground">
+            <AlertTriangle className="h-4 w-4 !text-status-warning-foreground" />
+            <AlertDescription>سجّل الدخول لتقديم عرضك وحجز السيارة.</AlertDescription>
           </Alert>
           <div className="flex gap-2">
-            <Button asChild className="flex-1">
+            <Button asChild className="h-11 flex-1 rounded-xl">
               <Link href={`/auth/login?redirect=${encodeURIComponent(pathname || '')}`}>تسجيل الدخول</Link>
             </Button>
-            <Button asChild variant="outline" className="flex-1">
+            <Button asChild variant="outline" className="h-11 flex-1 rounded-xl">
               <Link href={`/auth/register?redirect=${encodeURIComponent(pathname || '')}`}>إنشاء حساب</Link>
             </Button>
           </div>
+          <HowItWorks />
         </CardContent>
       </Card>
     )
   }
 
-  // Fee Calculation
-  const RESERVATION_FEE_SAR = 500
-  const TOTAL_FEE_SAR = RESERVATION_FEE_SAR // 500
-  const TOTAL_FEE_HALALAS = TOTAL_FEE_SAR * 100 // 50000
-
   const hasSlots = priceSlots && priceSlots.length > 0
+  const hasUnpaidBid = Boolean(currentUserBid) && !locked
+  const selectedColor = colors.find((color) => color.configuration_id === selectedConfigId)?.color
 
   // Bid Value Logic
   const bidValue = selectedSlot ?? (customAmount ? parseInt(customAmount) : 0)
-  
-  // Validation
+
   // Offer must be > Reservation Fee (500)
   const isValidBid = bidValue > RESERVATION_FEE_SAR && Boolean(selectedConfigId)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!userId) {
-      toast({
-        title: "يجب تسجيل الدخول",
-        description: "يرجى تسجيل الدخول أولاً لوضع مزايدة",
-        variant: "destructive"
-      })
-      return
-    }
 
     if (!isValidBid) {
       setError(!selectedConfigId ? 'اختر اللون المطلوب قبل تقديم العرض' : `يجب أن يكون العرض أعلى من رسوم الالتزام (${RESERVATION_FEE_SAR} ريال)`)
@@ -143,9 +151,9 @@ export function BidInput({
       if (bidError) {
         setError(toArabicError(bidError, 'لم نتمكن من تسجيل العرض، حاول مرة أخرى.'))
         toast({
-            title: "خطأ",
-            description: "لم نتمكن من تسجيل العرض، حاول مرة أخرى",
-            variant: "destructive"
+          title: 'خطأ',
+          description: 'لم نتمكن من تسجيل العرض، حاول مرة أخرى',
+          variant: 'destructive'
         })
       } else {
         setCreatedBidId(data.id)
@@ -159,169 +167,228 @@ export function BidInput({
     }
   }
 
+  const submitLabel = locked
+    ? 'تم تأكيد الحجز'
+    : hasUnpaidBid
+      ? 'تحديث العرض وإكمال الدفع'
+      : `قدّم عرضك وادفع ${formatCurrencySar(RESERVATION_FEE_SAR)}`
+
   return (
-    <Card>
+    <Card className="rounded-2xl lg:shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-primary" />
+          <Tag className="h-5 w-5 text-brand" />
           قدّم عرضك
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm text-muted-foreground">سعر الوكالة</span>
+          <span className="text-2xl font-extrabold text-foreground">{formatCurrencySar(msrp)}</span>
+        </div>
+
         <div className="space-y-2">
-          <Label className="flex items-center gap-2"><Palette className="h-4 w-4 text-primary" />اختر اللون المطلوب *</Label>
+          <Label className="flex items-center gap-2"><Palette className="h-4 w-4 text-brand" />اختر اللون المطلوب *</Label>
           <div className="grid gap-2 sm:grid-cols-2">
             {colors.map((color) => (
               <button
                 key={color.configuration_id}
                 type="button"
                 onClick={() => { setSelectedConfigId(color.configuration_id); setError('') }}
-                className={`rounded-xl border p-3 text-right transition-colors ${selectedConfigId === color.configuration_id ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background hover:border-primary/50'}`}
+                disabled={locked || isSubmitting}
+                className={cn(
+                  'flex min-h-12 items-center justify-between rounded-xl border px-3 py-2 text-right transition-colors disabled:opacity-60',
+                  selectedConfigId === color.configuration_id
+                    ? 'border-2 border-primary bg-primary/5'
+                    : 'border-border bg-background hover:border-primary/50'
+                )}
                 aria-pressed={selectedConfigId === color.configuration_id}
               >
-                <span className="block font-semibold">{localizeVehicleText(color.color)}</span>
-                <span className="text-xs text-muted-foreground">متاح {color.available_quantity}</span>
+                <span className="font-semibold text-foreground">{localizeVehicleText(color.color)}</span>
+                <span className="text-xs text-muted-foreground">{color.available_quantity} متاح</span>
               </button>
             ))}
           </div>
         </div>
-        {/* Context */}
-        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">سعر الوكالة</span>
-            <span className="text-lg font-bold text-gray-900">
-              {formatCurrencySar(msrp)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center text-xs text-blue-600">
-             <span>رسوم الالتزام المطلوبة</span>
-             <span className="font-bold">{formatCurrencySar(TOTAL_FEE_SAR)} (شاملة الضريبة)</span>
-          </div>
-        </div>
 
         {currentUserBid && (
-           <Alert className="bg-green-50 border-green-200">
-             <CheckCircle className="w-4 h-4 text-green-600" />
-             <AlertDescription className="text-green-800">
-               عرضك الحالي: <strong>{formatCurrencySar(currentUserBid)}</strong>
-               {locked && <span> (مدفوع)</span>}
-             </AlertDescription>
-           </Alert>
+          <Alert className={cn('border-transparent', locked ? 'bg-status-success text-status-success-foreground' : 'bg-status-warning text-status-warning-foreground')}>
+            {locked
+              ? <CheckCircle className="h-4 w-4 !text-status-success-foreground" />
+              : <Clock className="h-4 w-4 !text-status-warning-foreground" />}
+            <AlertDescription>
+              عرضك الحالي: <strong>{formatCurrencySar(currentUserBid)}</strong>
+              {locked ? ' · تم دفع الرسوم' : ' · بانتظار دفع رسوم الالتزام'}
+            </AlertDescription>
+          </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Custom Amount Input */}
-            <div className="space-y-2">
-                <Label>قيمة العرض (ريال)</Label>
-                <div className="relative">
-                    <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input 
-                        type="number" 
-                        placeholder="أدخل المبلغ..." 
-                        className="pr-10"
-                        value={customAmount}
-                        onChange={(e) => {
-                            setCustomAmount(e.target.value)
-                            setSelectedSlot(null)
-                        }}
-                        disabled={locked || isSubmitting}
-                    />
-                </div>
-                <p className="text-xs text-gray-500">
-                    سيتم خصم {RESERVATION_FEE_SAR} ريال كرسوم التزام من هذا العرض عند التقديم للتاجر.
-                </p>
+          <div className="space-y-2">
+            <Label htmlFor="offer-amount">قيمة عرضك</Label>
+            <div className="relative">
+              <Input
+                id="offer-amount"
+                type="number"
+                inputMode="numeric"
+                placeholder="أدخل المبلغ"
+                className="h-12 rounded-xl pl-14 text-lg font-bold"
+                value={customAmount}
+                onChange={(e) => {
+                  setCustomAmount(e.target.value)
+                  setSelectedSlot(null)
+                }}
+                disabled={locked || isSubmitting}
+              />
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ر.س</span>
             </div>
-            
-            {hasSlots && (
-                <div className="space-y-2">
-                    <Label className="text-xs text-gray-400">أو اختر من خيارات التاجر السريعة:</Label>
-                    <div className="flex flex-wrap gap-2">
-                        {priceSlots.map(slot => (
-                            <button
-                                key={slot}
-                                type="button"
-                                onClick={() => {
-                                    setSelectedSlot(slot)
-                                    setCustomAmount(slot.toString())
-                                }}
-                                disabled={locked || isSubmitting}
-                                className={`px-3 py-1 text-sm rounded-full border ${
-                                    selectedSlot === slot 
-                                    ? 'bg-primary text-white border-primary' 
-                                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary'
-                                }`}
-                            >
-                                {formatCurrencySar(slot)}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
+          </div>
 
-            {error && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="w-4 h-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
+          {hasSlots && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">أو اختر من خيارات التاجر السريعة:</Label>
+              <div className="flex flex-wrap gap-2">
+                {priceSlots.map(slot => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSlot(slot)
+                      setCustomAmount(slot.toString())
+                    }}
+                    disabled={locked || isSubmitting}
+                    className={cn(
+                      'min-h-9 rounded-full border px-3 py-1 text-sm',
+                      selectedSlot === slot
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background text-foreground hover:border-primary'
+                    )}
+                  >
+                    {formatCurrencySar(slot)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-            <Button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/90"
-                disabled={locked || !isValidBid || isSubmitting}
-            >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    جاري المعالجة...
-                  </>
-                ) : currentUserBid ? (
-                  locked ? 'تم تأكيد الحجز' : 'تحديث الحجز وإكمال الدفع'
-                ) : (
-                  'احجز الآن (ادفع الرسوم)'
-                )}
-            </Button>
+          <div className="flex items-center justify-between rounded-xl bg-muted/60 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">رسوم الالتزام</p>
+              <p className="text-xs text-muted-foreground">شاملة الضريبة، وتُخصم من السعر النهائي</p>
+            </div>
+            <span className="text-lg font-extrabold text-primary">{formatCurrencySar(RESERVATION_FEE_SAR)}</span>
+          </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button
+            type="submit"
+            className="h-12 w-full rounded-xl text-base font-bold"
+            disabled={locked || !isValidBid || isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                جاري المعالجة...
+              </>
+            ) : submitLabel}
+          </Button>
+          <SecurePaymentNote />
         </form>
 
-        {/* Info */}
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-800 space-y-1">
-             <p className="font-semibold">كيف يعمل النظام؟</p>
-             <p>1. تقدم عرضك وتدفع رسوم الالتزام ({formatCurrencySar(TOTAL_FEE_SAR)}).</p>
-             <p>2. يتم بث عرضك لجميع الوكلاء الذين يملكون هذه السيارة.</p>
-             <p>3. أول وكيل يقبل العرض يفوز بالصفقة.</p>
-             <p>4. يتم البيع والشراء بالأولوية.</p>
-        </div>
-
+        <HowItWorks />
       </CardContent>
 
       <Dialog open={showPayModal} onOpenChange={setShowPayModal}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto" dir="rtl">
+          <DialogHeader className="text-right sm:text-right">
             <DialogTitle>تأكيد العرض ودفع الرسوم</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
             <DialogDescription>
-              لتأكيد جديتك، يرجى دفع رسوم الالتزام. المبلغ غير مسترد في حال قبول التاجر لعرضك وانسحابك، ولكنه يخصم من قيمة السيارة النهائية.
+              ادفع رسوم الالتزام ليُرسل عرضك إلى التجار الموثّقين.
             </DialogDescription>
-            
-            <div className="bg-gray-100 p-4 rounded-md flex justify-between items-center">
-                <span>المبلغ المطلوب:</span>
-                <span className="font-bold text-lg">{formatCurrencySar(TOTAL_FEE_SAR)}</span>
-            </div>
+          </DialogHeader>
 
-            {createdBidId && (
-              <MoyasarCheckout
-                amountHalalas={TOTAL_FEE_HALALAS}
-                description={`رسوم الالتزام للعرض رقم ${createdBidId}`}
-                bidId={createdBidId}
-                carId={selectedConfigId}
-                listingId={listingId}
-              />
+          <ol className="flex items-center gap-2" aria-label="خطوات الحجز">
+            {CHECKOUT_STEPS.map((step, index) => (
+              <li key={step} className="flex flex-1 items-center gap-2" aria-current={index === 1 ? 'step' : undefined}>
+                <span
+                  className={cn(
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                    index === 0 && 'bg-primary text-primary-foreground',
+                    index === 1 && 'bg-ink text-white',
+                    index === 2 && 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {index === 0 ? <Check className="h-4 w-4" /> : index + 1}
+                </span>
+                <span className={cn('text-sm', index === 2 ? 'text-muted-foreground' : 'font-semibold text-foreground')}>{step}</span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="space-y-2 rounded-xl border border-border p-4 text-sm">
+            {vehicleName && (
+              <p className="font-bold text-foreground">
+                {vehicleName}{selectedColor ? ` · ${localizeVehicleText(selectedColor)}` : ''}
+              </p>
             )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">سعر الوكالة</span>
+              <span className="text-foreground">{formatCurrencySar(msrp)}</span>
+            </div>
+            {bidValue > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">عرضك</span>
+                <span className="font-bold text-foreground">{formatCurrencySar(bidValue)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-border pt-2">
+              <span className="font-semibold text-foreground">المطلوب الآن</span>
+              <span className="text-xl font-extrabold text-primary">{formatCurrencySar(RESERVATION_FEE_SAR)}</span>
+            </div>
+          </div>
+
+          {createdBidId && (
+            <MoyasarCheckout
+              amountHalalas={RESERVATION_FEE_HALALAS}
+              description={`رسوم الالتزام للعرض رقم ${createdBidId}`}
+              bidId={createdBidId}
+              carId={selectedConfigId}
+              listingId={listingId}
+            />
+          )}
+
+          <div className="flex gap-3 rounded-xl bg-status-success p-3 text-xs leading-6 text-status-success-foreground">
+            <Lock className="mt-1 h-4 w-4 shrink-0" />
+            <p className="text-status-success-foreground">
+              دفع آمن عبر ميسّر، ولا نحتفظ ببيانات بطاقتك. تُخصم الرسوم من سعر السيارة النهائي، ولا تُسترد إذا قبل التاجر عرضك ثم انسحبت.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
     </Card>
+  )
+}
+
+function HowItWorks() {
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-4">
+      <p className="text-sm font-bold text-foreground">كيف يتم الشراء؟</p>
+      <ol className="space-y-2">
+        {HOW_IT_WORKS.map((step, index) => (
+          <li key={step} className="flex items-start gap-3 text-sm">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-status-success text-xs font-bold text-status-success-foreground">
+              {index + 1}
+            </span>
+            <span className="leading-6 text-muted-foreground">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }

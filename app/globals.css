@@ -16,19 +16,31 @@
     --card-foreground: 206 23% 23%;
     --popover: 0 0% 100%;
     --popover-foreground: 206 23% 23%;
-    --primary: 179 45% 43%;
+    /* Deep teal: 5.1:1 under white text. --brand is the original lighter
+       teal, for icons, illustrations and tinted backgrounds only. */
+    --primary: 179 50% 32%;
     --primary-foreground: 0 0% 100%;
+    --brand: 179 45% 43%;
+    --ink: 184 46% 12%;
+    --status-warning: 36 71% 97%;
+    --status-warning-foreground: 32 90% 28%;
+    --status-success: 177 29% 92%;
+    --status-success-foreground: 179 52% 25%;
+    --status-danger: 6 77% 95%;
+    --status-danger-foreground: 4 59% 41%;
+    --status-neutral: 180 10% 93%;
+    --status-neutral-foreground: 210 21% 31%;
     --secondary: 180 12% 92%;
     --secondary-foreground: 206 23% 23%;
     --muted: 180 10% 93%;
-    --muted-foreground: 206 15% 45%;
+    --muted-foreground: 210 17% 41%;
     --accent: 180 12% 90%;
     --accent-foreground: 206 23% 23%;
     --destructive: 3 78% 58%;
     --destructive-foreground: 0 0% 100%;
     --border: 180 10% 86%;
     --input: 180 10% 86%;
-    --ring: 179 50% 44%;
+    --ring: 179 50% 32%;
     --chart-1: 179 55% 45%;
     --chart-2: 34 83% 60%;
     --chart-3: 206 28% 38%;

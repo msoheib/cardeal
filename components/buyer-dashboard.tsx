@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/status-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -18,7 +18,6 @@ import {
   createSupportTicket,
   getTicketsByBuyer,
   SUPPORT_TICKET_REASONS,
-  SUPPORT_TICKET_STATUSES,
   SupportTicketReason
 } from '@/lib/tickets'
 import { supabase, User, Deal, Bid } from '@/lib/supabase'
@@ -171,44 +170,6 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
     await loadDashboardData()
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">قيد الانتظار</Badge>
-      case 'accepted':
-        return <Badge className="bg-primary/10 text-primary">مقبولة</Badge>
-      case 'rejected':
-        return <Badge variant="destructive">مرفوضة</Badge>
-      case 'expired':
-        return <Badge variant="outline" className="text-gray-600">منتهية الصلاحية</Badge>
-      case 'pending_payment':
-        return <Badge className="bg-amber-100 text-amber-800">بانتظار موافقتك</Badge>
-      case 'completed':
-        return <Badge className="bg-primary/10 text-primary">تمت الموافقة</Badge>
-      default:
-        return <Badge variant="outline">حالة غير معروفة</Badge>
-    }
-  }
-
-  const getTicketStatusBadge = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <Badge className="bg-amber-100 text-amber-800">مفتوحة</Badge>
-      case 'under_review':
-        return <Badge className="bg-blue-100 text-blue-800">قيد المراجعة</Badge>
-      case 'approved':
-        return <Badge className="bg-primary/10 text-primary">تمت الموافقة</Badge>
-      case 'rejected':
-        return <Badge variant="destructive">مرفوضة</Badge>
-      case 'resolved':
-        return <Badge className="bg-primary/10 text-primary">تم الحل</Badge>
-      case 'closed':
-        return <Badge variant="outline">مغلقة</Badge>
-      default:
-        return <Badge variant="outline">{SUPPORT_TICKET_STATUSES[status as keyof typeof SUPPORT_TICKET_STATUSES] || status}</Badge>
-    }
-  }
-
   return (
     <div className="bg-gray-50">
       <main className="container mx-auto px-4 py-8 space-y-6">
@@ -289,7 +250,7 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
                               <h3 className="text-lg font-semibold">
                                 {vehicleTitle(config || {})}
                               </h3>
-                              {getStatusBadge(bid.status)}
+                              <StatusBadge kind="bid" status={bid.status} unpaid={!bid.commitment_fee_paid} />
                             </div>
 
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -386,7 +347,7 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
                           <div>
                             <div className="flex items-center gap-3">
                               <h3 className="text-lg font-semibold">{vehicleTitle(config || {})}</h3>
-                              {getStatusBadge(deal.status)}
+                              <StatusBadge kind="deal" audience="buyer" status={deal.status} />
                             </div>
                           </div>
                           <div className="text-sm text-gray-500">
@@ -401,7 +362,7 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
                           </div>
                           <div>
                             <span className="text-gray-600">حالة الصفقة:</span>
-                            <div className="font-semibold">{getStatusBadge(deal.status)}</div>
+                            <div className="font-semibold"><StatusBadge kind="deal" audience="buyer" status={deal.status} /></div>
                           </div>
                           <div>
                             <span className="text-gray-600">الوفر المحقق:</span>
@@ -485,7 +446,7 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-2">
-                                        {getTicketStatusBadge(ticket.status)}
+                                        <StatusBadge kind="ticket" status={ticket.status} />
                                         <span className="text-xs text-gray-500">
                                           {formatGregorianDate(ticket.created_at)}
                                         </span>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/status-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
@@ -218,33 +219,6 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
     window.location.href = '/'
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">قيد الانتظار</Badge>
-      case 'accepted':
-        return <Badge className="bg-primary/10 text-primary">مقبولة</Badge>
-      case 'approved':
-        return <Badge className="bg-primary/10 text-primary">معتمد</Badge>
-      case 'rejected':
-        return <Badge variant="destructive">مرفوضة</Badge>
-      case 'completed':
-        return <Badge className="bg-primary/10 text-primary">مكتملة</Badge>
-      case 'refunded':
-        return <Badge className="bg-blue-100 text-blue-800">مستردة</Badge>
-      case 'open':
-        return <Badge className="bg-amber-100 text-amber-800">مفتوحة</Badge>
-      case 'under_review':
-        return <Badge className="bg-blue-100 text-blue-800">قيد المراجعة</Badge>
-      case 'active':
-        return <Badge className="bg-primary/10 text-primary">نشط</Badge>
-      case 'draft':
-        return <Badge variant="outline">مسودة</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -298,7 +272,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                     {stats?.users?.buyer || 0} مشتري • {stats?.users?.dealer || 0} تاجر
                   </div>
                 </div>
-                <Users className="w-8 h-8 text-blue-500" />
+                <Users className="w-8 h-8 text-brand" />
               </div>
             </CardContent>
           </Card>
@@ -320,9 +294,9 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">المزايدات النشطة</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats?.activeBids || 0}</p>
+                  <p className="text-2xl font-bold text-status-warning-foreground">{stats?.activeBids || 0}</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-yellow-500" />
+                <TrendingUp className="w-8 h-8 text-status-warning-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -358,13 +332,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
 
         {/* Main Content */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
-            <TabsTrigger value="cars">السيارات المعلقة</TabsTrigger>
-            <TabsTrigger value="dealers">طلبات التجار</TabsTrigger>
-            <TabsTrigger value="bids">المزايدات</TabsTrigger>
-            <TabsTrigger value="deals">الصفقات</TabsTrigger>
-            <TabsTrigger value="support">الدعم</TabsTrigger>
+          <TabsList className="flex h-auto w-full justify-start overflow-x-auto md:grid md:grid-cols-6">
+            <TabsTrigger className="shrink-0" value="overview">نظرة عامة</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="cars">السيارات المعلقة</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="dealers">طلبات التجار</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="bids">المزايدات</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="deals">الصفقات</TabsTrigger>
+            <TabsTrigger className="shrink-0" value="support">الدعم</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -383,13 +357,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                     </div>
                     <div className="flex justify-between">
                       <span>مستردة:</span>
-                      <span className="font-semibold text-blue-600">
+                      <span className="font-semibold text-primary">
                         {stats?.commitmentFees?.refunded || 0}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>قيد الانتظار:</span>
-                      <span className="font-semibold text-yellow-600">
+                      <span className="font-semibold text-status-warning-foreground">
                         {stats?.commitmentFees?.pending || 0}
                       </span>
                     </div>
@@ -448,13 +422,13 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                       <div className="text-sm text-gray-600">إجمالي الإيرادات</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">
+                      <div className="text-2xl font-bold text-primary">
                         {formatCurrencySar(salesReport.summary.totalSavings)}
                       </div>
                       <div className="text-sm text-gray-600">إجمالي الوفر</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">
+                      <div className="text-2xl font-bold text-ink">
                         {formatCurrencySar(salesReport.summary.averageDiscount)}
                       </div>
                       <div className="text-sm text-gray-600">متوسط الخصم</div>
@@ -494,7 +468,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                             <h3 className="text-lg font-semibold">
                               {vehicleTitle(car)}
                             </h3>
-                            {getStatusBadge(car.status)}
+                            <StatusBadge kind="listing" status={car.status} />
                           </div>
                           
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -577,7 +551,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                               <h3 className="text-lg font-semibold">
                                 {application.company_name}
                               </h3>
-                              {getStatusBadge(application.status)}
+                              <StatusBadge kind="application" status={application.status} />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -674,7 +648,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                           <TableCell className="font-semibold">
                             {formatCurrencySar(bid.bid_price)}
                           </TableCell>
-                          <TableCell>{getStatusBadge(bid.status)}</TableCell>
+                          <TableCell><StatusBadge kind="bid" status={bid.status} unpaid={!bid.commitment_fee_paid} /></TableCell>
                           <TableCell>
                             {formatGregorianDate(bid.created_at)}
                           </TableCell>
@@ -718,7 +692,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                           <TableCell className="font-semibold text-primary">
                             {formatCurrencySar(deal.final_price)}
                           </TableCell>
-                          <TableCell>{getStatusBadge(deal.status)}</TableCell>
+                          <TableCell><StatusBadge kind="deal" status={deal.status} /></TableCell>
                           <TableCell>
                             {formatGregorianDate(deal.created_at)}
                           </TableCell>
@@ -763,7 +737,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                           <div className="space-y-2">
                             <div className="flex flex-wrap items-center gap-3">
                               <h3 className="text-lg font-semibold">{reason}</h3>
-                              {getStatusBadge(ticket.status)}
+                              <StatusBadge kind="ticket" status={ticket.status} />
                             </div>
                             <div className="text-sm text-gray-600">
                               {vehicleTitle(configuration || {})} • {formatGregorianDate(ticket.created_at)}
@@ -798,7 +772,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
                         </div>
 
                         {ticket.admin_notes && (
-                          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+                          <div className="rounded-lg border border-border bg-status-neutral p-4 text-sm text-status-neutral-foreground">
                             <span className="font-semibold">ملاحظات الإدارة: </span>
                             {ticket.admin_notes}
                           </div>
