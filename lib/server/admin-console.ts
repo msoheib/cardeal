@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { FieldDef, ResourceDef } from '@/lib/admin-console/resources'
+import { localizeVehicleText } from '@/lib/arabic-display'
 
 export const MAX_BULK_IDS = 500
 export const MAX_PAGE_SIZE = 200
@@ -168,7 +169,9 @@ async function lookup(db: SupabaseClient, table: string, ids: (string | null | u
   return new Map(((data || []) as unknown as Row[]).map((row) => [row.id as string, row]))
 }
 
-const vehicleLabel = (c?: Row) => (c ? [c.make, c.model, c.year, c.color].filter(Boolean).join(' ') : '')
+// Same Arabic names the buyer and dealer screens show.
+const vehicleLabel = (c?: Row) =>
+  c ? [localizeVehicleText(c.make), localizeVehicleText(c.model), c.year, localizeVehicleText(c.color)].filter(Boolean).join(' ') : ''
 
 function minutesBetween(from?: string, to?: string) {
   if (!from || !to) return null
