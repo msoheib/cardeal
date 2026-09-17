@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:security": "node --test tests/security/*.test.mjs",
+    "test:ui": "node --test tests/ui/*.test.mjs",
     "verify:db-contract": "node scripts/verify-db-contract.mjs",
     "seed:cars": "node scripts/seed-cars.js",
     "e2e:prod:seed": "node scripts/e2e-production-seed.js",
@@ -18,6 +19,9 @@
   },
   "overrides": {
     "postcss": "8.5.10"
+  },
+  "devDependencies": {
+    "react-test-renderer": "18.2.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

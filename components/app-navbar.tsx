@@ -1,10 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Car, LayoutDashboard, LogIn, Menu, Store, UserPlus, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Car, CircleUserRound, LayoutDashboard, Loader2, LogIn, LogOut, Menu, Store, UserPlus, Users } from 'lucide-react'
 
+import { signOut } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 
@@ -17,7 +21,43 @@ const navItems = [
 
 export function AppNavbar() {
   const pathname = usePathname() || '/'
+  const router = useRouter()
   const isAuth = pathname.startsWith('/auth')
+  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null)
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  useEffect(() => {
+    // INITIAL_SESSION restores the header on reload; subsequent events keep it
+    // in sync with login/logout elsewhere without a separate profile request.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsSignedIn(Boolean(session?.user))
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return
+    setIsSigningOut(true)
+
+    try {
+      const { error } = await signOut()
+      if (error) throw error
+
+      setIsMenuOpen(false)
+      router.replace('/')
+      router.refresh()
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'تعذر تسجيل الخروج',
+        description: 'يرجى المحاولة مرة أخرى.'
+      })
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-[80] w-full border-b border-[#1f4548] bg-[#102528] text-white shadow-sm">
@@ -56,26 +96,46 @@ export function AppNavbar() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          <Link
-            href="/auth/login"
-            className={cn(
-              'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition-colors',
-              isAuth ? 'bg-white text-[#102528]' : 'bg-white/10 text-white hover:bg-white/15'
-            )}
-          >
-            <LogIn className="h-4 w-4" />
-            دخول
-          </Link>
-          <Link
-            href="/auth/register"
-            className="hidden h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
-          >
-            <UserPlus className="h-4 w-4" />
-            إنشاء حساب
-          </Link>
+          {isSignedIn === null ? (
+            <div role="status" className="flex h-10 w-52 items-center justify-center text-white/65">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <span className="sr-only">جاري تحميل الحساب...</span>
+            </div>
+          ) : isSignedIn ? (
+            <>
+              <Link href="/dashboard" className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90">
+                <CircleUserRound className="h-4 w-4" />
+                حسابي
+              </Link>
+              <Button type="button" variant="ghost" onClick={handleSignOut} disabled={isSigningOut} className="h-10 gap-2 rounded-xl bg-white/10 px-4 text-sm font-bold text-white hover:bg-white/15 hover:text-white">
+                <LogOut className="h-4 w-4" />
+                {isSigningOut ? 'جاري الخروج...' : 'تسجيل الخروج'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                className={cn(
+                  'inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition-colors',
+                  isAuth ? 'bg-white text-[#102528]' : 'bg-white/10 text-white hover:bg-white/15'
+                )}
+              >
+                <LogIn className="h-4 w-4" />
+                دخول
+              </Link>
+              <Link
+                href="/auth/register"
+                className="hidden h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
+              >
+                <UserPlus className="h-4 w-4" />
+                إنشاء حساب
+              </Link>
+            </>
+          )}
         </div>
 
-        <Sheet>
+        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <SheetTrigger asChild>
             <Button type="button" variant="ghost" size="icon" className="shrink-0 text-white hover:bg-white/10 hover:text-white lg:hidden" aria-label="فتح قائمة التنقل">
               <Menu className="h-6 w-6" />
@@ -95,8 +155,24 @@ export function AppNavbar() {
               })}
             </nav>
             <div className="mt-6 grid gap-2 border-t pt-6">
-              <Button asChild variant={isAuth ? 'default' : 'outline'}><Link href="/auth/login"><LogIn className="ml-2 h-4 w-4" />دخول</Link></Button>
-              <Button asChild><Link href="/auth/register"><UserPlus className="ml-2 h-4 w-4" />إنشاء حساب</Link></Button>
+              {isSignedIn === null ? (
+                <div role="status" className="flex h-10 items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  جاري تحميل الحساب...
+                </div>
+              ) : isSignedIn ? (
+                <>
+                  <Button asChild><Link href="/dashboard" onClick={() => setIsMenuOpen(false)}><CircleUserRound className="ml-2 h-4 w-4" />حسابي</Link></Button>
+                  <Button type="button" variant="outline" onClick={handleSignOut} disabled={isSigningOut}>
+                    <LogOut className="ml-2 h-4 w-4" />{isSigningOut ? 'جاري الخروج...' : 'تسجيل الخروج'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild variant={isAuth ? 'default' : 'outline'}><Link href="/auth/login" onClick={() => setIsMenuOpen(false)}><LogIn className="ml-2 h-4 w-4" />دخول</Link></Button>
+                  <Button asChild><Link href="/auth/register" onClick={() => setIsMenuOpen(false)}><UserPlus className="ml-2 h-4 w-4" />إنشاء حساب</Link></Button>
+                </>
+              )}
             </div>
           </SheetContent>
         </Sheet>
