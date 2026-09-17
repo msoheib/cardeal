@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Tajawal } from 'next/font/google'
 import { AppNavbar } from '@/components/app-navbar'
+import { SiteFooter } from '@/components/layout/site-footer'
 import { RealTimeProvider } from '@/components/ui/real-time-provider'
 import { Toaster } from '@/components/ui/toaster'
 
@@ -28,7 +29,10 @@ export default function RootLayout({
       <body className={`${tajawal.variable} font-sans antialiased`}>
         <RealTimeProvider>
           <AppNavbar />
-          {children}
+          <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+            <div className="flex-1">{children}</div>
+            <SiteFooter />
+          </div>
           <Toaster />
         </RealTimeProvider>
       </body>

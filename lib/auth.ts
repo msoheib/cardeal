@@ -25,6 +25,17 @@ export const signIn = async (email: string, password: string) => {
   return { data, error }
 }
 
+/** Sends the reset link. `redirectTo` must be allow-listed in Supabase Auth → URL Configuration. */
+export const requestPasswordReset = async (email: string, redirectTo: string) => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+  return { error }
+}
+
+export const updatePassword = async (password: string) => {
+  const { error } = await supabase.auth.updateUser({ password })
+  return { error }
+}
+
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
   return { error }

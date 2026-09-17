@@ -148,6 +148,13 @@ function RegisterContent() {
         </div>
         <p className="-mt-2 text-xs">6 أحرف على الأقل.</p>
 
+        <p className="text-xs leading-5">
+          بإنشاء الحساب فإنك توافق على{' '}
+          <Link href="/terms" className="font-medium text-primary hover:underline">الشروط والأحكام</Link>{' '}
+          و{' '}
+          <Link href="/privacy" className="font-medium text-primary hover:underline">سياسة الخصوصية</Link>.
+        </p>
+
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? <><Loader2 className="h-4 w-4 animate-spin" />جاري إنشاء الحساب...</> : 'إنشاء الحساب'}
         </Button>
