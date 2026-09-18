@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 
 const navItems = [
   { href: '/', label: 'الرئيسية', match: (path: string) => path === '/', icon: Car },
@@ -140,13 +140,13 @@ export function AppNavbar() {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[min(88vw,360px)]" dir="rtl">
-            <SheetHeader><SheetTitle>كار ديل</SheetTitle></SheetHeader>
+            <SheetHeader><SheetTitle>كار ديل</SheetTitle><SheetDescription className="sr-only">قائمة التنقل الرئيسية</SheetDescription></SheetHeader>
             <nav className="mt-6 flex flex-col gap-1" aria-label="التنقل الرئيسي للجوال">
               {navItems.map((item) => {
                 const Icon = item.icon
                 const active = item.match(pathname)
                 return (
-                  <Link key={item.href} href={item.href} className={cn('flex h-11 items-center gap-3 rounded-md px-3 text-sm', active ? 'bg-primary/10 font-bold text-primary' : 'text-foreground hover:bg-muted')} aria-current={active ? 'page' : undefined}>
+                  <Link key={item.href} href={item.href} onClick={() => setIsMenuOpen(false)} className={cn('flex h-11 items-center gap-3 rounded-md px-3 text-sm', active ? 'bg-primary/10 font-bold text-primary' : 'text-foreground hover:bg-muted')} aria-current={active ? 'page' : undefined}>
                     <Icon className="h-4 w-4" />{item.label}
                   </Link>
                 )

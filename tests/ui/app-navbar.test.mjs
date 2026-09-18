@@ -54,7 +54,7 @@ function mountNavbar(t, { pathname = '/dealer/cars/new', signOutResult, signOutT
     '@/components/ui/button': { Button },
     '@/components/ui/sheet': {
       Sheet, SheetContent: Container, SheetHeader: Container,
-      SheetTitle: Container, SheetTrigger: Container
+      SheetTitle: Container, SheetDescription: Container, SheetTrigger: Container
     }
   }
   const exports = {}
@@ -177,6 +177,19 @@ test('mobile account navigation closes the menu', (t) => {
   const accountLink = nav.links('/dashboard').find((node) => node.props.onClick)
   act(() => accountLink.props.onClick())
   assert.equal(nav.sheet().props.open, false)
+})
+
+test('mobile primary navigation closes the menu', (t) => {
+  const nav = mountNavbar(t)
+  nav.emit('INITIAL_SESSION', session)
+  const primary = [['/', 'الرئيسية'], ['/cars', 'السوق'], ['/dashboard', 'لوحة التحكم'], ['/dealer/apply', 'الموردون']]
+  for (const [href, label] of primary) {
+    act(() => nav.sheet().props.onOpenChange(true))
+    const link = nav.links(href).find((node) => node.children.includes(label) && node.props.onClick)
+    assert.ok(link, `mobile link to ${href} must close the menu`)
+    act(() => link.props.onClick())
+    assert.equal(nav.sheet().props.open, false)
+  }
 })
 
 test('mobile guest navigation closes the menu', (t) => {
