@@ -9,11 +9,11 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AuthShell } from '@/components/layout/auth-shell'
-import { signUp } from '@/lib/auth'
+import { resendVerification, signUp } from '@/lib/auth'
 import { toArabicError } from '@/lib/arabic-errors'
 import { getSafeRedirectPath } from '@/lib/redirect'
 import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MailCheck } from 'lucide-react'
 
 function RegisterContent() {
   const [formData, setFormData] = useState({
@@ -26,10 +26,16 @@ function RegisterContent() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  // Set when Supabase requires email confirmation: no session comes back.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
+  const [isResending, setIsResending] = useState(false)
+  const [resendNote, setResendNote] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams?.get('redirect')
   const safeRedirectUrl = getSafeRedirectPath(redirectUrl)
+  // Merchants continue to the application form; everyone else to their destination.
+  const nextPath = formData.userType === 'dealer' ? '/dealer/apply?from=register' : safeRedirectUrl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,18 +55,21 @@ function RegisterContent() {
       return
     }
 
-    const { error: signUpError } = await signUp(
+    const { data, error: signUpError } = await signUp(
       formData.email,
       formData.password,
       formData.fullName,
-      formData.phone || undefined
+      formData.phone || undefined,
+      nextPath
     )
 
     if (signUpError) {
       setError(toArabicError(signUpError, 'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.'))
+    } else if (data?.session) {
+      // Email confirmation is off: the account is usable right away.
+      router.push(nextPath)
     } else {
-      // Redirect to the original page or dashboard
-      router.push(formData.userType === 'dealer' ? '/dealer/apply?from=register' : safeRedirectUrl)
+      setAwaitingConfirmation(true)
     }
 
     setIsLoading(false)
@@ -70,10 +79,42 @@ function RegisterContent() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleResend = async () => {
+    setIsResending(true)
+    setResendNote('')
+    const { error: resendError } = await resendVerification(formData.email, nextPath)
+    setIsResending(false)
+    setResendNote(resendError
+      ? toArabicError(resendError, 'تعذر إعادة الإرسال. حاول بعد قليل.')
+      : 'أرسلنا الرابط مرة أخرى.')
+  }
+
   const accountTypes = [
     { value: 'buyer', label: 'مشتري', hint: 'أقدّم عروضاً على السيارات' },
     { value: 'dealer', label: 'تاجر / معرض', hint: 'أعرض سيارات وأقبل العروض' },
   ] as const
+
+  if (awaitingConfirmation) {
+    return (
+      <AuthShell
+        title="تحقق من بريدك"
+        description="أرسلنا رابط تفعيل لتأكيد بريدك الإلكتروني."
+        footer={<Link href="/auth/login" className="font-medium text-primary hover:underline">العودة لتسجيل الدخول</Link>}
+      >
+        <div className="flex flex-col items-center gap-3 text-center">
+          <MailCheck className="h-6 w-6 text-primary" aria-hidden />
+          <p className="text-sm">
+            افتح الرابط المرسل إلى <span dir="ltr" className="font-medium text-foreground">{formData.email}</span> لتفعيل حسابك، ثم سجّل الدخول.
+          </p>
+          <p className="text-xs">لم يصلك شيء؟ تحقق من مجلد الرسائل غير المرغوب فيها.</p>
+          {resendNote && <p className="text-xs font-medium text-foreground">{resendNote}</p>}
+          <Button variant="outline" size="sm" onClick={handleResend} disabled={isResending}>
+            {isResending ? <><Loader2 className="h-4 w-4 animate-spin" />جاري الإرسال...</> : 'إعادة إرسال الرابط'}
+          </Button>
+        </div>
+      </AuthShell>
+    )
+  }
 
   return (
     <AuthShell
@@ -147,6 +188,12 @@ function RegisterContent() {
           </div>
         </div>
         <p className="-mt-2 text-xs">6 أحرف على الأقل.</p>
+
+        {formData.userType === 'dealer' && (
+          <p className="rounded-md bg-muted p-3 text-xs leading-5">
+            يُنشأ حسابك كمشتري، وبعد إرسال بيانات المنشأة تتحول الصلاحيات إلى تاجر فور اعتماد الإدارة للطلب.
+          </p>
+        )}
 
         <p className="text-xs leading-5">
           بإنشاء الحساب فإنك توافق على{' '}

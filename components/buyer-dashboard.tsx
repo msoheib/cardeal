@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { EmptyState } from '@/components/ui/empty-state'
 import { Stat, StatGroup } from '@/components/ui/stat'
 import { PageHeader } from '@/components/layout/page-header'
+import { DealerApplicationStatus } from '@/components/dealer-application-status'
 import { localizeVehicleText, vehicleTitle } from '@/lib/arabic-display'
 import { formatCurrencySar, formatGregorianDate, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -28,7 +29,6 @@ import { signOut } from '@/lib/auth'
 import { useToast } from '@/hooks/use-toast'
 import {
   Car,
-  Building2,
   TrendingUp,
   Clock,
   CheckCircle,
@@ -188,15 +188,14 @@ export function BuyerDashboard({ user }: BuyerDashboardProps) {
             <Button asChild size="sm">
               <Link href="/cars"><Car className="h-4 w-4" />تصفح السيارات</Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/dealer/apply"><Building2 className="h-4 w-4" />حساب تاجر</Link>
-            </Button>
             <Button size="sm" variant="ghost" onClick={handleSignOut}>
               <LogOut className="h-4 w-4" />خروج
             </Button>
           </>
         }
       />
+
+      <DealerApplicationStatus userId={user.id} />
 
       <StatGroup>
         <Stat label="بانتظار الدفع" value={formatNumber(unpaidBids.length)} tone={unpaidBids.length ? 'warning' : 'default'} hint="أكمل دفع رسوم الالتزام" />

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AlertCircle, ArrowRight, CheckCircle, Loader2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { PageHeader } from '@/components/layout/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useToast } from '@/hooks/use-toast'
 import { toArabicError } from '@/lib/arabic-errors'
 import { getCurrentUser } from '@/lib/auth'
 import { supabase, User } from '@/lib/supabase'
@@ -24,8 +25,11 @@ type DealerApplication = {
   rejection_reason?: string | null
 }
 
-export default function DealerApplyPage() {
+function DealerApplyContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const justRegistered = searchParams?.get('from') === 'register'
+  const { toast } = useToast()
   const [user, setUser] = useState<User | null>(null)
   const [application, setApplication] = useState<DealerApplication | null>(null)
   const [isChecking, setIsChecking] = useState(true)
@@ -125,6 +129,11 @@ export default function DealerApplyPage() {
       setError(toArabicError(submitError, 'تعذر إرسال طلب الاعتماد. يرجى المحاولة مرة أخرى.'))
     } else if (data) {
       setApplication(data as DealerApplication)
+      toast({
+        title: 'تم إرسال طلب الاعتماد',
+        description: 'سنراجع بياناتك ويظهر حساب التاجر بعد الموافقة. يمكنك متابعة الحالة من هذه الصفحة أو من لوحة التحكم.',
+      })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
     setIsSubmitting(false)
@@ -151,6 +160,14 @@ export default function DealerApplyPage() {
         <Card>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-5 pt-5">
+              {justRegistered && !application && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>تم إنشاء حسابك</AlertTitle>
+                  <AlertDescription>أكمل بيانات المنشأة أدناه لتقديم طلب حساب التاجر. يبقى حسابك مشترياً حتى اعتماد الطلب.</AlertDescription>
+                </Alert>
+              )}
+
               {application?.status === 'pending' && (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
@@ -250,5 +267,13 @@ export default function DealerApplyPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function DealerApplyPage() {
+  return (
+    <Suspense fallback={null}>
+      <DealerApplyContent />
+    </Suspense>
   )
 }

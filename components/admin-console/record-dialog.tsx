@@ -136,6 +136,7 @@ export function RecordDialog({ resource, record, mode, open, onOpenChange, onSub
                     onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
                   />
                 )}
+                {field.hint && <p className="text-xs leading-5 text-muted-foreground">{field.hint}</p>}
               </div>
             )
           })}

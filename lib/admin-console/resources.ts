@@ -13,6 +13,8 @@ export interface FieldDef {
   createOnly?: boolean
   /** Shown but never written. */
   readOnly?: boolean
+  /** Extra explanation under the control in the record dialog. */
+  hint?: string
 }
 
 export interface ColumnDef {
@@ -197,17 +199,18 @@ export const RESOURCES: Record<ResourceKey, ResourceDef> = {
     canCreate: true, canDelete: true,
   },
   users: {
-    key: 'users', table: 'users', label: 'المستخدمون', description: 'الحسابات والأدوار. الإنشاء يتم عبر التسجيل.',
+    key: 'users', table: 'users', label: 'المستخدمون', description: 'الحسابات والأدوار. الإنشاء يتم عبر التسجيل، ويصبح المستخدم تاجراً عند اعتماد طلبه.',
     searchColumns: ['full_name', 'email', 'phone'], statusField: 'user_type', defaultOrder: 'created_at',
     columns: [
       { key: 'full_name', label: 'الاسم' }, { key: 'email', label: 'البريد' }, { key: 'phone', label: 'الجوال' },
-      { key: 'user_type', label: 'الدور', kind: 'status' }, created,
+      { key: 'user_type', label: 'الدور', kind: 'status' },
+      { key: '_application', label: 'طلب التاجر', kind: 'status' }, created,
     ],
     fields: [
       { key: 'full_name', label: 'الاسم', type: 'text', required: true },
       { key: 'email', label: 'البريد (الملف فقط)', type: 'text' },
       { key: 'phone', label: 'الجوال', type: 'text' },
-      { key: 'user_type', label: 'الدور', type: 'enum', options: USER_TYPE },
+      { key: 'user_type', label: 'الدور', type: 'enum', options: USER_TYPE, hint: 'اختيار «تاجر» هنا يمنح الصلاحية فقط ولا يُنشئ ملف تاجر؛ لإنشائه اعتمد طلب التاجر.' },
       { key: 'preferred_language', label: 'اللغة', type: 'text' },
     ],
     canCreate: false, canDelete: true,

@@ -6,6 +6,12 @@ const SUCCESS = new Set(['active', 'accepted', 'completed', 'paid', 'approved', 
 const WARNING = new Set(['pending', 'pending_payment', 'open', 'under_review', 'dealer'])
 const DANGER = new Set(['rejected', 'cancelled', 'car_damaged', 'car_not_received', 'supplier_no_response'])
 
+const APPLICATION_LABELS: Record<string, string> = {
+  pending: 'طلب قيد المراجعة',
+  approved: 'طلب معتمد',
+  rejected: 'طلب مرفوض',
+}
+
 export function AdminStatus({ resource, field, value }: { resource: ResourceDef; field: string; value: unknown }) {
   const key = String(value ?? '')
   const tone = SUCCESS.has(key)
@@ -17,7 +23,7 @@ export function AdminStatus({ resource, field, value }: { resource: ResourceDef;
         : 'bg-status-neutral text-status-neutral-foreground'
   return (
     <Badge className={cn('whitespace-nowrap border-transparent font-semibold hover:opacity-90', tone)}>
-      {optionLabel(resource, field, value) || '—'}
+      {(field === '_application' ? APPLICATION_LABELS[key] : optionLabel(resource, field, value)) || '—'}
     </Badge>
   )
 }

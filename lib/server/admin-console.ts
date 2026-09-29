@@ -62,6 +62,23 @@ export function dbError(error: { message?: string; code?: string; details?: stri
   return new AdminApiError(400, `${message}${error.details || error.message ? ` (${error.details || error.message})` : ''}`)
 }
 
+/** Arabic for the error codes the admin RPCs return in their jsonb payload. */
+const RPC_ERRORS: Record<string, string> = {
+  admin_required: 'هذه العملية للمدير فقط. سجّل الدخول بحساب مدير وحاول مجدداً.',
+  cannot_demote_self: 'لا يمكنك إزالة صلاحية المدير من حسابك.',
+  user_not_found: 'المستخدم غير موجود.',
+  application_not_found: 'الطلب غير موجود.',
+  application_not_pending: 'الطلب غير معلّق: تمت مراجعته مسبقاً.',
+  dealer_record_conflict: 'يوجد ملف تاجر بنفس السجل التجاري.',
+  ticket_not_found: 'التذكرة غير موجودة.',
+  invalid_status: 'حالة غير مسموحة.',
+}
+
+export function rpcError(code: unknown, fallback = 'تعذر تنفيذ العملية.') {
+  const key = String(code ?? '')
+  return RPC_ERRORS[key] || (key ? `${fallback} (${key})` : fallback)
+}
+
 export function parseIds(value: unknown): string[] {
   if (!Array.isArray(value) || value.length === 0) throw new AdminApiError(400, 'لم يتم تحديد أي سجل')
   if (value.length > MAX_BULK_IDS) throw new AdminApiError(400, `الحد الأقصى ${MAX_BULK_IDS} سجل في العملية الواحدة`)
@@ -272,6 +289,20 @@ export async function enrichRows(db: SupabaseClient, resource: ResourceDef, rows
         _buyer: buyers.get(r.buyer_id)?.full_name || '',
         _dealer: dealers.get(r.dealer_id)?.company_name || '',
       }))
+    }
+    case 'users': {
+      // Shows why a "merchant" signup is listed as a buyer: the role only
+      // changes when their dealer application is approved.
+      const { data } = await db
+        .from('dealer_applications')
+        .select('user_id, status, created_at')
+        .in('user_id', rows.map((r) => r.id))
+        .order('created_at', { ascending: false })
+      const byUser = new Map<string, string>()
+      for (const app of (data || []) as Row[]) {
+        if (!byUser.has(app.user_id)) byUser.set(app.user_id, app.status)
+      }
+      return rows.map((r) => ({ ...r, _application: byUser.get(r.id) || '' }))
     }
     default:
       return rows

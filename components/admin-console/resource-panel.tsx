@@ -140,7 +140,7 @@ export function ResourcePanel({ resource, currentUserId, initialStatus, initialF
     toast({
       title,
       description: [
-        failures.length ? `تعذر ${failures.length}: ${failures.slice(0, 2).join(' · ')}` : '',
+        failures.length ? `تعذر ${failures.length}: ${failures.join(' · ')}` : '',
         res.audited === false ? 'تنبيه: لم يُسجَّل في سجل التدقيق (طبّق ملف الترحيل).' : '',
       ].filter(Boolean).join('\n') || undefined,
       variant: failures.length ? 'destructive' : 'default',
@@ -377,6 +377,16 @@ export function ResourcePanel({ resource, currentUserId, initialStatus, initialF
                     ))}
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        {isApplications && row.status === 'pending' && (
+                          <>
+                            <Button size="sm" onClick={() => setConfirm({ kind: 'review', ids: [row.id], action: 'approve' })}>
+                              <Check className="h-4 w-4" />اعتماد
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setConfirm({ kind: 'review', ids: [row.id], action: 'reject' })}>
+                              رفض
+                            </Button>
+                          </>
+                        )}
                         <Button size="icon" variant="ghost" aria-label="تعديل" onClick={() => setEditing({ mode: 'edit', record: row })}>
                           <Pencil className="h-4 w-4" />
                         </Button>

@@ -1,7 +1,14 @@
 import { supabase } from './supabase'
 import { User } from './supabase'
 
-export const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
+export const signUp = async (
+  email: string,
+  password: string,
+  fullName: string,
+  phone?: string,
+  /** Where to send the user once they click the verification link. */
+  next?: string
+) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -9,11 +16,28 @@ export const signUp = async (email: string, password: string, fullName: string, 
       data: {
         full_name: fullName,
         phone
-      }
+      },
+      emailRedirectTo: typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/confirm${next ? `?next=${encodeURIComponent(next)}` : ''}`
+        : undefined
     }
   })
 
   return { data, error }
+}
+
+/** Re-sends the sign-up verification email. */
+export const resendVerification = async (email: string, next?: string) => {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/confirm${next ? `?next=${encodeURIComponent(next)}` : ''}`
+        : undefined
+    }
+  })
+  return { error }
 }
 
 export const signIn = async (email: string, password: string) => {

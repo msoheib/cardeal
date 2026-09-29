@@ -90,7 +90,7 @@ function assertSignedIn(nav) {
   assert.equal(nav.links('/auth/login').length, 0)
   assert.equal(nav.links('/auth/register').length, 0)
   assert.equal(nav.signOutButtons().length, 2)
-  assert.equal(nav.links('/dashboard').filter((node) => node.children.includes('حسابي')).length, 2)
+  assert.equal(nav.links('/account').filter((node) => node.children.includes('حسابي')).length, 2)
 }
 
 test('does not flash guest or account actions before the initial session resolves', (t) => {
@@ -174,7 +174,7 @@ test('mobile account navigation closes the menu', (t) => {
   const nav = mountNavbar(t)
   nav.emit('INITIAL_SESSION', session)
   act(() => nav.sheet().props.onOpenChange(true))
-  const accountLink = nav.links('/dashboard').find((node) => node.props.onClick)
+  const accountLink = nav.links('/account').find((node) => node.props.onClick)
   act(() => accountLink.props.onClick())
   assert.equal(nav.sheet().props.open, false)
 })

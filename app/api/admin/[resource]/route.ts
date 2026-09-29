@@ -12,6 +12,7 @@ import {
   MAX_PAGE_SIZE,
   parseIds,
   requireAdmin,
+  rpcError,
   sanitizeValues,
   writeAudit,
 } from '@/lib/server/admin-console'
@@ -119,8 +120,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       return NextResponse.json(await reviewTickets(req, ctx, ids, values))
     }
 
-    if (resource.key === 'users' && 'user_type' in values && ids.includes(ctx.adminId) && values.user_type !== 'admin') {
-      throw new AdminApiError(400, 'لا يمكنك إزالة صلاحية المدير من حسابك')
+    if (resource.key === 'users' && 'user_type' in values) {
+      if (ids.includes(ctx.adminId) && values.user_type !== 'admin') {
+        throw new AdminApiError(400, 'لا يمكنك إزالة صلاحية المدير من حسابك')
+      }
+      // public.users has a trigger that only accepts a role change from a real
+      // admin identity, which the service-role client does not have.
+      return NextResponse.json(await setUserRoles(req, ctx, ids, values))
     }
 
     const { data, error } = await ctx.db.from(resource.table).update(values).in('id', ids).select('id')
@@ -195,7 +201,7 @@ async function reviewTickets(req: NextRequest, ctx: AdminContext, ids: string[],
       p_status: status,
       p_admin_notes: typeof adminNotes === 'string' ? adminNotes : null,
     })
-    if (error || data?.success === false) failures.push(`${id}: ${error?.message || data?.error}`)
+    if (error || data?.success === false) failures.push(error?.message || rpcError(data?.error))
     else done.push(id)
   }
 
@@ -221,12 +227,41 @@ async function reviewApplications(req: NextRequest, ctx: AdminContext, ids: stri
     const { data, error } = action === 'approve'
       ? await asAdmin.rpc('approve_dealer_application', { p_application_id: id })
       : await asAdmin.rpc('reject_dealer_application', { p_application_id: id, p_rejection_reason: String(reason || '').slice(0, 1000) })
-    if (error || data?.error) failures.push(`${id}: ${error?.message || data?.error}`)
+    if (error || data?.error) failures.push(error?.message || rpcError(data?.error))
     else done.push(id)
   }
 
   const audited = done.length > 0
     ? await writeAudit(ctx, { action, resource: 'dealer_applications', recordIds: done, changes: action === 'reject' ? { reason } : null })
+    : true
+  return { updated: done.length, failures, audited }
+}
+
+async function setUserRoles(req: NextRequest, ctx: AdminContext, ids: string[], values: Record<string, unknown>) {
+  const { user_type: userType, updated_at: _updatedAt, ...rest } = values
+  void _updatedAt
+
+  const asAdmin = clientAsAdmin(req)
+  const done: string[] = []
+  const failures: string[] = []
+  for (const id of ids) {
+    const { data, error } = await asAdmin.rpc('admin_set_user_role', { p_user_id: id, p_user_type: userType })
+    if (error?.code === 'PGRST202') {
+      // The migration adding the function has not been applied to this database yet.
+      throw new AdminApiError(400, 'تغيير الأدوار غير مفعّل بعد: طبّق ملف الترحيل 20260930090000_admin_set_user_role.sql على قاعدة البيانات.')
+    }
+    if (error || data?.success === false) failures.push(error?.message || rpcError(data?.error))
+    else done.push(id)
+  }
+
+  // Name, phone and the rest are plain columns the trigger does not guard.
+  if (done.length > 0 && Object.keys(rest).length > 0) {
+    const { error } = await ctx.db.from('users').update({ ...rest, updated_at: new Date().toISOString() }).in('id', done)
+    if (error) failures.push(dbError(error)!.message)
+  }
+
+  const audited = done.length > 0
+    ? await writeAudit(ctx, { action: 'update', resource: 'users', recordIds: done, changes: values })
     : true
   return { updated: done.length, failures, audited }
 }

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AuthShell } from '@/components/layout/auth-shell'
-import { signIn } from '@/lib/auth'
+import { resendVerification, signIn } from '@/lib/auth'
 import { toArabicError } from '@/lib/arabic-errors'
 import { getSafeRedirectPath } from '@/lib/redirect'
 import { Loader2 } from 'lucide-react'
@@ -18,6 +18,8 @@ function LoginContent() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
+  const [resendNote, setResendNote] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams?.get('redirect')
@@ -32,6 +34,7 @@ function LoginContent() {
 
     if (signInError) {
       setError(toArabicError(signInError, 'تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.'))
+      setNeedsConfirmation(/not confirmed/i.test(signInError.message || ''))
     } else {
       // Redirect to the original page or dashboard
       router.push(safeRedirectUrl)
@@ -56,7 +59,23 @@ function LoginContent() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="space-y-2">
+              <p>{error}</p>
+              {needsConfirmation && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const { error: resendError } = await resendVerification(email.trim(), safeRedirectUrl)
+                    setResendNote(resendError ? 'تعذر إعادة الإرسال. حاول بعد قليل.' : 'أرسلنا رابط التفعيل مرة أخرى.')
+                  }}
+                >
+                  إعادة إرسال رابط التفعيل
+                </Button>
+              )}
+              {resendNote && <p className="text-xs font-medium">{resendNote}</p>}
+            </AlertDescription>
           </Alert>
         )}
 
